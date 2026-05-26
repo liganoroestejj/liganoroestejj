@@ -9,8 +9,8 @@ export default function MembershipSectionDesktop() {
     <section style={{ padding: "0 60px 64px" }}>
       <div style={{ background: "#0A0A0A", borderRadius: 12, display: "grid", gridTemplateColumns: "1.4fr 0.6fr", overflow: "hidden" }}>
         <div style={{ padding: 44 }}>
-          <div style={{ border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 9, fontWeight: 700, letterSpacing: 4, padding: "4px 14px", display: "inline-block", marginBottom: 18 }}>Filiações Abertas</div>
-          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color: "#fff", lineHeight: 1, marginBottom: 22 }}>
+          <div style={{ border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 11, fontWeight: 700, letterSpacing: 4, padding: "4px 14px", display: "inline-block", marginBottom: 18 }}>Filiações Abertas</div>
+          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 50, color: "#fff", lineHeight: 1, marginBottom: 22 }}>
             Garanta sua<br /><span style={{ color: "#F0B90B" }}>Carteirinha</span>
           </h2>
           {benefits.map((b, i) => (
@@ -18,10 +18,10 @@ export default function MembershipSectionDesktop() {
               <div style={{ width: 18, height: 18, background: "#F0B90B", borderRadius: "50%", flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg viewBox="0 0 10 10" fill="none" stroke="#0A0A0A" strokeWidth="2" width="10" height="10"><polyline points="2,5 4,7 8,3"/></svg>
               </div>
-              <span style={{ color: "#aaa", fontSize: 11, lineHeight: 1.6 }}>{b}</span>
+              <span style={{ color: "#aaa", fontSize: 13, lineHeight: 1.6 }}>{b}</span>
             </div>
           ))}
-          <button style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 11, fontWeight: 800, padding: "14px 24px", borderRadius: 5, display: "inline-block", marginTop: 20, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer" }}>
+          <button style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "14px 24px", borderRadius: 5, display: "inline-block", marginTop: 20, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer" }}>
             Quero me Filiar →
           </button>
         </div>

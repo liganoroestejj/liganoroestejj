@@ -1,8 +1,8 @@
 const stats = [
-  { n: "500+", label: "Atletas Filiados" },
-  { n: "8",    label: "Etapas em 2025" },
-  { n: "20+",  label: "Academias" },
-  { n: "3",    label: "Anos de Liga" },
+  { n: "50+", label: "Atletas Filiados" },
+  { n: "6",   label: "Etapas em 2026" },
+  { n: "15+", label: "Academias" },
+  { n: "1",   label: "Anos de Liga" },
 ]
 
 const icons = [
@@ -18,8 +18,8 @@ export default function StatsBarDesktop() {
       {stats.map((s, i) => (
         <div key={i} style={{ padding: 20, textAlign: "center", borderLeft: i > 0 ? "1px solid rgba(0,0,0,0.15)" : "none" }}>
           <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>{icons[i]}</div>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#0A0A0A", letterSpacing: 1, lineHeight: 1 }}>{s.n}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(0,0,0,0.6)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, color: "#0A0A0A", letterSpacing: 1, lineHeight: 1 }}>{s.n}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.6)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
         </div>
       ))}
     </div>

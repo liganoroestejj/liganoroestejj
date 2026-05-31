@@ -8,10 +8,6 @@ const CameraIcon = () => (
   </svg>
 )
 
-const placeholders = [
-  { w: 2, h: 2 }, { w: 1, h: 1 }, { w: 1, h: 1 },
-  { w: 1, h: 1 }, { w: 1, h: 1 }, { w: 2, h: 1 },
-]
 
 export default function FotosDesktop() {
   return (

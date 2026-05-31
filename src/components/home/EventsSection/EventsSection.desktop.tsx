@@ -1,5 +1,5 @@
 import camp1 from "../../../assets/image/campeonato1.jpg"
-import camp2 from "../../../assets/image/campeonato2.jpg"
+import camp2 from "../../../assets/image/campeonato2.jpeg"
 import camp3 from "../../../assets/image/campeonato3.webp"
 
 const events = [

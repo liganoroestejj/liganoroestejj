@@ -4,7 +4,7 @@ const BoltIcon = () => (
   </svg>
 )
 
-const links = ["Calendário de Eventos", "Ranking 2026", "Fazer Filiação", "Academias Filiadas", "Arbitragem"]
+const links = ["Calendário de Eventos", "Ranking 2026", "Fazer Filiação", "Academias Filiadas"]
 
 export default function FooterDesktop() {
   return (

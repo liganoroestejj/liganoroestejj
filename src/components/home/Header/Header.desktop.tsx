@@ -1,12 +1,22 @@
+import { Link, useLocation } from "react-router-dom"
+
 const BoltIcon = () => (
   <svg width="18" height="24" viewBox="0 0 14 22" fill="none">
     <path d="M9 0L2 12h5l-2 10 9-13H9L11 0z" fill="#F0B90B" />
   </svg>
 )
 
-const navLinks = ["Início", "Calendário", "Ranking", "Academias", "Atletas", "Fotos", "Arbitragem"]
+const navLinks = [
+  { label: "Início", href: "/" },
+  { label: "Calendário", href: "/calendario" },
+  { label: "Ranking", href: "/ranking" },
+  { label: "Academias", href: "/academias" },
+  { label: "Atletas", href: "/atletas" },
+  { label: "Fotos", href: "/fotos" },
+]
 
 export default function HeaderDesktop() {
+  const { pathname } = useLocation()
   return (
     <header style={{ background: "#0A0A0A", padding: "0 60px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, position: "sticky", top: 0, zIndex: 50 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -17,11 +27,14 @@ export default function HeaderDesktop() {
         </div>
       </div>
       <nav style={{ display: "flex", gap: 28 }}>
-        {navLinks.map((link, i) => (
-          <a key={link} href="#" style={{ color: i === 0 ? "#F0B90B" : "#999", fontSize: 16, fontWeight: 600, textDecoration: "none", letterSpacing: 1, textTransform: "uppercase" }}>
-            {link}
-          </a>
-        ))}
+        {navLinks.map(({ label, href }) => {
+          const isActive = pathname === href
+          return (
+            <Link key={href} to={href} style={{ color: isActive ? "#F0B90B" : "#999", fontSize: 16, fontWeight: 600, textDecoration: "none", letterSpacing: 1, textTransform: "uppercase" }}>
+              {label}
+            </Link>
+          )
+        })}
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <a href="https://wa.me/" style={{ width: 38, height: 38, background: "#F0B90B", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, textDecoration: "none" }}>

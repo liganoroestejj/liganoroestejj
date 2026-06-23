@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // É o administrador? (mesmo e-mail do VITE_ADMIN_EMAIL)
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email.lower() == 'liganoroestejj@gmail.com';
+    }
+
+    function isOwner(cpf) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/affiliates/$(cpf)).data.uid == request.auth.uid;
+    }
+
+    // Filiados — dados pessoais. Só o dono ou o admin leem.
+    match /affiliates/{cpf} {
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.uid == request.auth.uid);
+      // Cria a própria filiação (uid precisa bater com quem está logado).
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      // Admin altera qualquer campo; o dono só pode mudar a própria foto.
+      allow update: if isAdmin()
+        || (request.auth != null
+            && resource.data.uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL', 'cardId']));
+      allow delete: if isAdmin();
+
+      // Mensalidades.
+      match /payments/{month} {
+        allow read: if isAdmin() || isOwner(cpf);
+        allow create: if isAdmin() || isOwner(cpf);  // mensalidade inicial / meses seguintes
+        allow update, delete: if isAdmin();      // admin marca como pago
+      }
+    }
+
+    // Índice público de CPFs: só informa existência, sem dados pessoais.
+    match /cpfRegistry/{cpf} {
+      allow get: if true;                        // checagem da Etapa 1
+      allow list: if isAdmin();
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // Carteirinhas públicas — leitura pública (validação via QR Code).
+    // O dono cria/atualiza a sua; o admin pode tudo.
+    match /publicCards/{cardId} {
+      allow read: if true;
+      allow create: if isAdmin()
+        || (request.auth != null && request.resource.data.uid == request.auth.uid);
+      allow update: if isAdmin()
+        || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Academias — leitura pública, escrita só admin.
+    match /academies/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

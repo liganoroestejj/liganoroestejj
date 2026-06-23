@@ -13,3 +13,15 @@ body {
   color: var(--color-text);
   background: var(--color-bg);
 }
+
+/* Ícone do seletor de data: cor de destaque (#F0B90B) e alinhado com a
+   seta dos selects (mesma distância da borda direita: 14px). */
+input[type="date"].date-accent::-webkit-calendar-picker-indicator {
+  filter: brightness(0) saturate(100%) invert(78%) sepia(56%) saturate(1352%)
+    hue-rotate(359deg) brightness(101%) contrast(91%);
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+}

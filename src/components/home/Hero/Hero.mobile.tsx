@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 interface Slide {
   tag: string
@@ -8,19 +9,19 @@ interface Slide {
   sub: string
   badge?: string
   benefits?: string[]
-  btns: { label: string; primary: boolean }[]
+  btns: { label: string; primary: boolean; to: string }[]
 }
 
 const slides: Slide[] = [
   {
-    tag: "Federação Up Regional",
+    tag: "Federação Regional",
     year: "2026",
     line1: "LIGA",
     line2: "NOROESTE",
     sub: "Jiu Jitsu Pro",
     btns: [
-      { label: "Fazer Filiação", primary: true },
-      { label: "Ver Calendário", primary: false },
+      { label: "Fazer Filiação", primary: true, to: "/cadastro" },
+      { label: "Ver Calendário", primary: false, to: "/calendario" },
     ],
   },
   {
@@ -31,8 +32,8 @@ const slides: Slide[] = [
     sub: "📍 Itaperuna — RJ",
     badge: "Inscrições Abertas",
     btns: [
-      { label: "Ver Inscrições", primary: true },
-      { label: "Ver Calendário", primary: false },
+      { label: "Ver Inscrições", primary: true, to: "/calendario" },
+      { label: "Ver Calendário", primary: false, to: "/calendario" },
     ],
   },
   {
@@ -43,12 +44,13 @@ const slides: Slide[] = [
     sub: "Atletas e Academias",
     benefits: ["Acesso a todos os campeonatos", "Carteirinha digital com QR Code"],
     btns: [
-      { label: "Quero me Filiar →", primary: true },
+      { label: "Quero me Filiar →", primary: true, to: "/cadastro" },
     ],
   },
 ]
 
 export default function HeroMobile() {
+  const navigate = useNavigate()
   const [active, setActive] = useState(0)
   const prev = () => setActive(i => (i - 1 + slides.length) % slides.length)
   const next = () => setActive(i => (i + 1) % slides.length)
@@ -97,7 +99,7 @@ export default function HeroMobile() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {s.btns.map((btn, i) => (
-            <button key={i} style={btn.primary
+            <button key={i} onClick={() => navigate(btn.to)} style={btn.primary
               ? { background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: 14, borderRadius: 6, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer" }
               : { border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600, padding: 14, borderRadius: 6, letterSpacing: 1.5, background: "none", cursor: "pointer" }
             }>{btn.label}</button>

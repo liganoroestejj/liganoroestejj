@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom"
+
 const benefits = [
   "Acesso a todos os campeonatos oficiais da Liga",
   "Carteirinha digital com QR Code de verificação",
@@ -21,9 +23,9 @@ export default function MembershipSectionDesktop() {
               <span style={{ color: "#aaa", fontSize: 13, lineHeight: 1.6 }}>{b}</span>
             </div>
           ))}
-          <button style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "14px 24px", borderRadius: 5, display: "inline-block", marginTop: 20, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer" }}>
+          <Link to="/cadastro" style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "14px 24px", borderRadius: 5, display: "inline-block", marginTop: 20, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer", textDecoration: "none" }}>
             Quero me Filiar →
-          </button>
+          </Link>
         </div>
         <div style={{ background: "#111", display: "flex", alignItems: "center", justifyContent: "center", padding: 28 }}>
           <div style={{ width: 110, height: 150, background: "#1a1a1a", border: "1px solid #F0B90B", borderRadius: 8, padding: 12, transform: "rotate(-6deg)", display: "flex", flexDirection: "column", gap: 7 }}>

@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom"
+
 const benefits = [
   "Acesso a todos os campeonatos oficiais",
   "Carteirinha digital com QR Code",
@@ -18,9 +20,9 @@ export default function MembershipSectionMobile() {
             <span style={{ color: "#aaa", fontSize: 12, lineHeight: 1.5 }}>{b}</span>
           </div>
         ))}
-        <button style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: 14, borderRadius: 6, display: "block", width: "100%", marginTop: 16, letterSpacing: 1.5, textTransform: "uppercase", border: "none", cursor: "pointer" }}>
+        <Link to="/cadastro" style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: 14, borderRadius: 6, display: "block", width: "100%", marginTop: 16, letterSpacing: 1.5, textTransform: "uppercase", border: "none", cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box" }}>
           Quero me Filiar →
-        </button>
+        </Link>
       </div>
     </section>
   )

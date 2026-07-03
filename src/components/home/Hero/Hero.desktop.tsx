@@ -51,7 +51,7 @@ const slides: Slide[] = [
     benefits: ["Acesso a todos os campeonatos oficiais", "Carteirinha digital com QR Code"],
     btns: [
       { label: "Quero me Filiar →", primary: true, to: "/cadastro" },
-      { label: "Ver Benefícios", primary: false, to: "/cadastro" },
+      { label: "Ver Benefícios", primary: false, to: "#beneficios" },
     ],
     wm1: "FILIE",
     wm2: "SE JÁ",
@@ -65,8 +65,18 @@ export default function HeroDesktop() {
   const next = () => setActive(i => (i + 1) % slides.length)
   const s = slides[active]
 
+  // Botões com destino iniciando em "#" rolam para a seção na própria página
+  // (ex.: "Ver Benefícios"); os demais navegam por rota.
+  const handleBtn = (to: string) => {
+    if (to.startsWith("#")) {
+      document.querySelector(to)?.scrollIntoView({ behavior: "smooth" })
+    } else {
+      navigate(to)
+    }
+  }
+
   return (
-    <section style={{ background: "#0A0A0A", padding: "80px 60px 72px", position: "relative", overflow: "hidden", minHeight: 320, display: "flex", alignItems: "center" }}>
+    <section style={{ background: "#0A0A0A", padding: "80px clamp(24px, 5vw, 60px) 72px", position: "relative", overflow: "hidden", minHeight: 320, display: "flex", alignItems: "center" }}>
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, background: "#F0B90B" }} />
 
       {/* Watermark */}
@@ -112,7 +122,7 @@ export default function HeroDesktop() {
 
         <div style={{ display: "flex", gap: 14 }}>
           {s.btns.map((btn, i) => (
-            <button key={i} onClick={() => navigate(btn.to)} style={btn.primary
+            <button key={i} onClick={() => handleBtn(btn.to)} style={btn.primary
               ? { background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "14px 28px", borderRadius: 5, letterSpacing: 2, textTransform: "uppercase", border: "none", cursor: "pointer" }
               : { border: "1px solid #444", color: "#999", fontSize: 13, fontWeight: 600, padding: "14px 28px", borderRadius: 5, letterSpacing: 2, textTransform: "uppercase", background: "none", cursor: "pointer" }
             }>{btn.label}</button>

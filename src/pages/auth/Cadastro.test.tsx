@@ -125,7 +125,7 @@ describe("Filiação — Etapa 2 (dados)", () => {
   it("o botão Voltar retorna para a etapa 1", async () => {
     const { container } = renderCadastro()
     await irParaEtapa2(container)
-    fireEvent.click(screen.getByText(/Voltar/))
+    fireEvent.click(screen.getByText("← Voltar"))
     expect(await screen.findByText("Continuar")).toBeInTheDocument()
   })
 })

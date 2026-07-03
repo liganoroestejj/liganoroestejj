@@ -7,13 +7,15 @@ import * as s from "./authStyles"
 const REMEMBER_KEY = "lnjjp_login"
 
 export default function Login() {
-  const { signIn } = useAuth()
+  const { signIn, resetPassword } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
   const [lembrar, setLembrar] = useState(false)
   const [erro, setErro] = useState("")
   const [carregando, setCarregando] = useState(false)
+  const [aviso, setAviso] = useState("")
+  const [enviandoReset, setEnviandoReset] = useState(false)
 
   // Carrega credenciais salvas, se "lembrar-me" estava ativo.
   useEffect(() => {
@@ -28,9 +30,28 @@ export default function Login() {
     }
   }, [])
 
+  async function handleReset() {
+    setErro("")
+    setAviso("")
+    if (!email.trim()) {
+      setErro("Informe seu e-mail acima para receber o link de redefinição.")
+      return
+    }
+    setEnviandoReset(true)
+    try {
+      await resetPassword(email.trim())
+      setAviso("Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.")
+    } catch (err) {
+      setErro(authErrorMessage(err))
+    } finally {
+      setEnviandoReset(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro("")
+    setAviso("")
     setCarregando(true)
     try {
       await signIn(email, senha)
@@ -58,6 +79,11 @@ export default function Login() {
         <div style={s.subtitle}>Liga Noroeste Jiu-Jitsu Pro</div>
 
         {erro && <div style={s.error}>{erro}</div>}
+        {aviso && (
+          <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.4)", color: "#4ade80", fontSize: 13, padding: "10px 14px", borderRadius: 6, marginBottom: 14 }}>
+            {aviso}
+          </div>
+        )}
 
         <label style={s.label}>E-mail</label>
         <input
@@ -78,6 +104,17 @@ export default function Login() {
           autoComplete="current-password"
           required
         />
+
+        <div style={{ textAlign: "right", marginBottom: 14 }}>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={enviandoReset}
+            style={{ background: "none", border: "none", color: "#F0B90B", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, letterSpacing: 0.5, opacity: enviandoReset ? 0.6 : 1 }}
+          >
+            {enviandoReset ? "Enviando..." : "Esqueci minha senha"}
+          </button>
+        </div>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#999", fontSize: 13, marginBottom: 18, cursor: "pointer", userSelect: "none" }}>
           <input

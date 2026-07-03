@@ -21,11 +21,16 @@ service cloud.firestore {
       // Cria a própria filiação (uid precisa bater com quem está logado).
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid;
-      // Admin altera qualquer campo; o dono só pode mudar a própria foto.
+      // Admin altera qualquer campo; o dono só pode mudar a foto e os
+      // próprios dados de contato/endereço (nunca CPF, faixa, status, etc.).
       allow update: if isAdmin()
         || (request.auth != null
             && resource.data.uid == request.auth.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL', 'cardId']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 'photoURL', 'cardId',
+                 'email', 'instagram', 'phone', 'address',
+                 'neighborhood', 'zipCode', 'city', 'state'
+               ]));
       allow delete: if isAdmin();
 
       // Mensalidades.

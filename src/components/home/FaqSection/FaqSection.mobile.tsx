@@ -1,10 +1,5 @@
 import { useState } from "react"
-
-const faqs = [
-  { q: "Quando acontecem os campeonatos?", a: "Os campeonatos são realizados ao longo do ano. Confira o calendário completo na seção Calendário." },
-  { q: "Como acessar o ranking?",           a: "A classificação é atualizada após cada etapa e pode ser acessada na seção Ranking, filtrando por ano e categoria." },
-  { q: "Como fazer minha filiação?",        a: "Acesse a seção Atletas > Nova Filiação para se filiar ou renovar sua carteirinha." },
-]
+import { faqs } from "./faqs"
 
 export default function FaqSectionMobile() {
   const [open, setOpen] = useState<number | null>(null)

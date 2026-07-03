@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -18,6 +19,7 @@ interface AuthContextValue {
   isAdmin: boolean
   signUp: (nome: string, email: string, senha: string) => Promise<void>
   signIn: (email: string, senha: string) => Promise<void>
+  resetPassword: (email: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -44,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, senha)
   }
 
+  async function resetPassword(email: string) {
+    await sendPasswordResetEmail(auth, email)
+  }
+
   async function logout() {
     await signOut(auth)
   }
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, isAdmin, signUp, signIn, logout }}
+      value={{ user, loading, isAdmin, signUp, signIn, resetPassword, logout }}
     >
       {children}
     </AuthContext.Provider>

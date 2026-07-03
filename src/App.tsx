@@ -10,6 +10,7 @@ import Cadastro from "./pages/auth/Cadastro"
 import Verificar from "./pages/verificar/Verificar"
 import Painel from "./pages/painel/Painel"
 import Admin from "./pages/admin/Admin"
+import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/auth/ProtectedRoute"
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

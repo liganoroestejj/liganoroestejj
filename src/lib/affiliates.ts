@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth"
 import { collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { cleanCpf } from "./cpf"
@@ -70,6 +70,14 @@ export async function registerAffiliate(input: AffiliateInput) {
 
   const cred = await createUserWithEmailAndPassword(auth, input.email, input.password)
   await updateProfile(cred.user, { displayName: input.fullName })
+
+  // E-mail de confirmação de cadastro (nativo do Firebase Auth, gratuito).
+  // Falha silenciosa: se o envio não sair, a filiação não pode ser bloqueada.
+  try {
+    await sendEmailVerification(cred.user)
+  } catch {
+    // Ignora: o cadastro já foi criado; o e-mail é só uma conveniência.
+  }
 
   // A carteirinha (cardId/publicCard) só é gerada após o 1º pagamento confirmado.
   await setDoc(doc(db, "affiliates", cpf), {
@@ -200,6 +208,43 @@ export interface AdminAffiliate {
 export async function adminSetValidUntil(cpf: string, validUntil: string, cardId?: string) {
   await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { validUntil })
   if (cardId) await updateDoc(doc(db, "publicCards", cardId), { validUntil })
+}
+
+/**
+ * Remoção lógica (soft delete) de um filiado — ação do admin.
+ * Preserva o registro (e o histórico de competições), apenas marca como
+ * inativo. A carteirinha pública é invalidada.
+ */
+export async function adminSoftDelete(cpf: string, cardId?: string) {
+  await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), {
+    status: "inactive",
+    inactivatedAt: serverTimestamp(),
+  })
+  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { status: "inactive" })
+}
+
+// Campos que o próprio filiado pode editar no perfil (dados de contato/endereço).
+// CPF, faixa, categoria, status e datas ficam fora — só o admin altera.
+export interface EditableProfile {
+  email: string
+  instagram: string
+  phone: string
+  address: string
+  neighborhood: string
+  zipCode: string
+  city: string
+  state: string
+}
+
+/** Atualiza os dados de contato/endereço do próprio filiado. */
+export async function updateAffiliateProfile(cpf: string, data: EditableProfile) {
+  await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { ...data })
+}
+
+/** Remove a foto de perfil do filiado (e do card público, se houver). */
+export async function removeProfilePhoto(cpf: string, cardId?: string) {
+  await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { photoURL: "" })
+  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { photoURL: "" })
 }
 
 /** Lista todas as filiações (apenas admin, conforme regras). */

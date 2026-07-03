@@ -8,7 +8,7 @@ const benefits = [
 
 export default function MembershipSectionDesktop() {
   return (
-    <section style={{ padding: "0 60px 64px" }}>
+    <section id="beneficios" style={{ padding: "0 60px 64px", scrollMarginTop: 80 }}>
       <div style={{ background: "#0A0A0A", borderRadius: 12, display: "grid", gridTemplateColumns: "1.4fr 0.6fr", overflow: "hidden" }}>
         <div style={{ padding: 44 }}>
           <div style={{ border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 11, fontWeight: 700, letterSpacing: 4, padding: "4px 14px", display: "inline-block", marginBottom: 18 }}>Filiações Abertas</div>

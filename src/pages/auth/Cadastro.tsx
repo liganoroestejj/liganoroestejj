@@ -2,7 +2,9 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { authErrorMessage } from "../../lib/authErrors"
 import { cleanCpf, formatCpf, isValidCpf } from "../../lib/cpf"
-import { formatPhone } from "../../lib/masks"
+import { formatCep, formatPhone } from "../../lib/masks"
+import { isValidName, sanitizeName } from "../../lib/sanitize"
+import { fetchAddressByCep } from "../../lib/cep"
 import {
   cpfAlreadyRegistered,
   registerAffiliate,
@@ -48,12 +50,25 @@ const empty: Form = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Limites coerentes para data de nascimento (evita anos absurdos: BUG-03).
+const MIN_BIRTH_DATE = "1920-01-01"
+const TODAY_ISO = new Date().toISOString().slice(0, 10)
+
+/** Valida a data de nascimento. Retorna mensagem de erro ou "" se ok. */
+function validateBirthDate(iso: string): string {
+  if (!iso) return "Informe a data de nascimento."
+  if (iso < MIN_BIRTH_DATE) return "Data de nascimento inválida (ano mínimo: 1920)."
+  if (iso > TODAY_ISO) return "A data de nascimento não pode ser no futuro."
+  return ""
+}
+
 /** Valida um campo da Etapa 2. Retorna a mensagem de erro ou "" se ok. */
 function validateField(name: keyof Form, form: Form): string {
   const v = (form[name] ?? "").trim()
   switch (name) {
     case "fullName":
-      return v.length >= 5 && v.includes(" ") ? "" : "Informe seu nome completo (nome e sobrenome)."
+      if (v.length < 5 || !v.includes(" ")) return "Informe seu nome completo (nome e sobrenome)."
+      return isValidName(v) ? "" : "O nome deve conter apenas letras, espaços, apóstrofo ou hífen."
     case "email":
       return EMAIL_RE.test(v) ? "" : "E-mail inválido."
     case "instagram":
@@ -101,8 +116,31 @@ export default function Cadastro() {
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [erro, setErro] = useState("")
   const [carregando, setCarregando] = useState(false)
+  const [buscandoCep, setBuscandoCep] = useState(false)
 
   const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }))
+
+  // Ao completar 8 dígitos do CEP, autocompleta cidade/UF (e bairro/endereço,
+  // se ainda vazios) via ViaCEP. Falha silenciosa: é só conveniência.
+  async function handleCep(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 8)
+    set("zipCode", digits)
+    if (digits.length !== 8) return
+    setBuscandoCep(true)
+    try {
+      const addr = await fetchAddressByCep(digits)
+      if (!addr) return
+      setForm((f) => ({
+        ...f,
+        city: addr.city || f.city,
+        state: addr.state || f.state,
+        neighborhood: f.neighborhood.trim() ? f.neighborhood : addr.neighborhood,
+        address: f.address.trim() ? f.address : addr.street,
+      }))
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
   const touch = (k: keyof Form) => setTouched((t) => ({ ...t, [k]: true }))
   // Mensagem de erro do campo, só depois de "tocado" (blur) ou submit.
   const fieldErr = (k: keyof Form) => (touched[k] ? validateField(k, form) : "")
@@ -119,6 +157,17 @@ export default function Cadastro() {
     // 2) Dígito verificador: o CPF precisa ser matematicamente válido.
     if (!isValidCpf(form.cpf)) {
       setErro("CPF inválido. Verifique os números digitados.")
+      return
+    }
+    // 3) Data de nascimento dentro de um intervalo coerente.
+    const birthErr = validateBirthDate(form.birthDate)
+    if (birthErr) {
+      setErro(birthErr)
+      return
+    }
+    // 4) Sexo é obrigatório.
+    if (!form.gender) {
+      setErro("Selecione o sexo.")
       return
     }
     setCarregando(true)
@@ -206,6 +255,9 @@ export default function Cadastro() {
   return (
     <div style={s.page}>
       <form style={s.card} onSubmit={step === 1 ? avancarEtapa1 : enviar}>
+        <Link to="/" style={{ color: "#999", fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: 1, display: "inline-block", marginBottom: 20 }}>
+          ← Voltar ao início
+        </Link>
         <h1 style={s.title}>FILIAÇÃO</h1>
         <div style={s.subtitle}>Etapa {step} de 2 · Liga Noroeste</div>
 
@@ -229,6 +281,8 @@ export default function Cadastro() {
               className="date-accent"
               type="date"
               value={form.birthDate}
+              min={MIN_BIRTH_DATE}
+              max={TODAY_ISO}
               onChange={(e) => set("birthDate", e.target.value)}
               required
             />
@@ -248,7 +302,7 @@ export default function Cadastro() {
         ) : (
           <>
             <label style={s.label}>Nome completo</label>
-            <input style={s.input} value={form.fullName} onChange={(e) => set("fullName", e.target.value)} onBlur={() => touch("fullName")} autoComplete="name" />
+            <input style={s.input} value={form.fullName} onChange={(e) => set("fullName", sanitizeName(e.target.value))} onBlur={() => touch("fullName")} autoComplete="name" />
             {fieldErr("fullName") && <div style={fieldErrStyle}>{fieldErr("fullName")}</div>}
 
             <label style={s.label}>E-mail</label>
@@ -271,8 +325,8 @@ export default function Cadastro() {
             <input style={s.input} value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} onBlur={() => touch("neighborhood")} />
             {fieldErr("neighborhood") && <div style={fieldErrStyle}>{fieldErr("neighborhood")}</div>}
 
-            <label style={s.label}>CEP</label>
-            <input style={s.input} value={form.zipCode} onChange={(e) => set("zipCode", e.target.value)} onBlur={() => touch("zipCode")} placeholder="Ex: 12.345-678" />
+            <label style={s.label}>CEP {buscandoCep && <span style={{ color: "#777", fontWeight: 400 }}>· buscando endereço...</span>}</label>
+            <input style={s.input} value={formatCep(form.zipCode)} onChange={(e) => handleCep(e.target.value)} onBlur={() => touch("zipCode")} placeholder="00000-000" inputMode="numeric" />
             {fieldErr("zipCode") && <div style={fieldErrStyle}>{fieldErr("zipCode")}</div>}
 
             <label style={s.label}>Cidade</label>

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Vercel (link do projeto + token de deploy)
+.vercel
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

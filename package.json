@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "jest",
-    "deploy": "node scripts/deploy.mjs"
+    "test": "jest"
   },
   "dependencies": {
     "firebase": "^12.15.0",

@@ -25,3 +25,26 @@ export function isValidName(value: string): boolean {
   const v = value.trim()
   return v.length >= 5 && v.includes(" ") && !NAME_ALLOWED_RE.test(v)
 }
+
+/**
+ * true se o texto contém ao menos uma letra (NEW-01).
+ * Usar em campos livres como "Nome da rua" e "Cidade" para rejeitar
+ * entradas compostas apenas por símbolos/números.
+ */
+export function hasLetter(value: string): boolean {
+  return /\p{L}/u.test(value)
+}
+
+// Validação de e-mail mais estrita (NEW-02): exige rótulos de domínio válidos
+// e um TLD alfabético de 2+ caracteres, bloqueando formatos manifestamente
+// inválidos (sem ponto, TLD numérico, domínio malformado, etc.).
+const EMAIL_RE =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+
+/** true se o e-mail tem sintaxe válida e um domínio/TLD plausível. */
+export function isValidEmail(value: string): boolean {
+  const v = value.trim()
+  // Bloqueia pontos consecutivos e ponto no início/fim da parte local.
+  if (v.includes("..")) return false
+  return EMAIL_RE.test(v)
+}

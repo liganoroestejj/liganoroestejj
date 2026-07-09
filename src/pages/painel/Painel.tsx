@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext"
 import { removeProfilePhoto, updateAffiliateProfile, uploadProfilePhoto, type EditableProfile } from "../../lib/affiliates"
 import { BELT_LABELS, effectiveStatus, MEMBERSHIP_FEE, STATES, WHATSAPP_PHONE } from "../../lib/affiliateOptions"
 import { formatCep, formatPhone } from "../../lib/masks"
+import { isValidEmail } from "../../lib/sanitize"
 
 function formatDate(iso?: string): string {
   if (!iso) return "—"
@@ -79,6 +80,7 @@ export default function Painel() {
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [removendoFoto, setRemovendoFoto] = useState(false)
   const [erroFoto, setErroFoto] = useState("")
+  const [avisoFoto, setAvisoFoto] = useState("") // feedback de sucesso (BUG-16)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Aviso de e-mail não verificado (reenvio da confirmação)
@@ -128,10 +130,12 @@ export default function Painel() {
     const file = e.target.files?.[0]
     if (!file || !user || !affiliate) return
     setErroFoto("")
+    setAvisoFoto("")
     setEnviandoFoto(true)
     try {
       const photoURL = await uploadProfilePhoto(user.uid, affiliate.cpf, file, affiliate.cardId)
       setAffiliate({ ...affiliate, photoURL })
+      setAvisoFoto("Foto atualizada com sucesso.")
     } catch {
       setErroFoto("Não foi possível enviar a foto. Tente novamente.")
     } finally {
@@ -143,10 +147,12 @@ export default function Painel() {
   async function handleRemoverFoto() {
     if (!affiliate || !affiliate.photoURL) return
     setErroFoto("")
+    setAvisoFoto("")
     setRemovendoFoto(true)
     try {
       await removeProfilePhoto(affiliate.cpf, affiliate.cardId)
       setAffiliate({ ...affiliate, photoURL: "" })
+      setAvisoFoto("Foto removida com sucesso.")
     } catch {
       setErroFoto("Não foi possível remover a foto. Tente novamente.")
     } finally {
@@ -169,8 +175,7 @@ export default function Painel() {
     if (!affiliate) return
     setErroEdit("")
     setAvisoEdit("")
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRe.test(editForm.email.trim())) {
+    if (!isValidEmail(editForm.email)) {
       setErroEdit("E-mail inválido.")
       return
     }
@@ -281,6 +286,7 @@ export default function Painel() {
                   {affiliate.photoURL ? "Foto enviada. Você pode trocá-la." : "Envie uma foto sua para a carteirinha digital."}
                 </div>
                 {erroFoto && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{erroFoto}</div>}
+                {avisoFoto && <div style={{ color: "#4ade80", fontSize: 12, marginBottom: 8 }}>{avisoFoto}</div>}
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} style={{ display: "none" }} />
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { authErrorMessage } from "../../lib/authErrors"
 import { cleanCpf, formatCpf, isValidCpf } from "../../lib/cpf"
 import { formatCep, formatPhone } from "../../lib/masks"
-import { isValidName, sanitizeName } from "../../lib/sanitize"
+import { hasLetter, isValidEmail, isValidName, sanitizeName } from "../../lib/sanitize"
 import { fetchAddressByCep } from "../../lib/cep"
 import {
   cpfAlreadyRegistered,
@@ -48,17 +48,25 @@ const empty: Form = {
   academyId: "1", belt: "", role: "", password: "", confirm: "",
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 // Limites coerentes para data de nascimento (evita anos absurdos: BUG-03).
 const MIN_BIRTH_DATE = "1920-01-01"
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+
+// Idade mínima exigida pela categoria infantil (BUG-03): barra menores de 4 anos.
+// A data máxima permitida é hoje menos MIN_AGE anos — nunca a data de hoje.
+const MIN_AGE = 4
+function isoYearsAgo(years: number): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - years)
+  return d.toISOString().slice(0, 10)
+}
+const MAX_BIRTH_DATE = isoYearsAgo(MIN_AGE)
 
 /** Valida a data de nascimento. Retorna mensagem de erro ou "" se ok. */
 function validateBirthDate(iso: string): string {
   if (!iso) return "Informe a data de nascimento."
-  if (iso < MIN_BIRTH_DATE) return "Data de nascimento inválida (ano mínimo: 1920)."
-  if (iso > TODAY_ISO) return "A data de nascimento não pode ser no futuro."
+  if (iso < MIN_BIRTH_DATE) return "Data inválida (ano mínimo: 1920)."
+  // Barra futuro e idades abaixo do mínimo (categoria infantil, 4 anos).
+  if (iso > MAX_BIRTH_DATE) return `Data inválida (idade mínima: ${MIN_AGE} anos).`
   return ""
 }
 
@@ -70,7 +78,7 @@ function validateField(name: keyof Form, form: Form): string {
       if (v.length < 5 || !v.includes(" ")) return "Informe seu nome completo (nome e sobrenome)."
       return isValidName(v) ? "" : "O nome deve conter apenas letras, espaços, apóstrofo ou hífen."
     case "email":
-      return EMAIL_RE.test(v) ? "" : "E-mail inválido."
+      return isValidEmail(v) ? "" : "E-mail inválido."
     case "instagram":
       return v.replace(/^@/, "").length >= 3 ? "" : "Instagram inválido (mín. 3 caracteres)."
     case "phone": {
@@ -78,13 +86,15 @@ function validateField(name: keyof Form, form: Form): string {
       return d.length >= 10 && d.length <= 11 ? "" : "Telefone inválido (DDD + número, 10 ou 11 dígitos)."
     }
     case "address":
-      return v.length >= 5 ? "" : "Endereço muito curto (mín. 5 caracteres)."
+      if (v.length < 5) return "Endereço muito curto (mín. 5 caracteres)."
+      return hasLetter(v) ? "" : "Endereço inválido (informe o nome da rua)."
     case "neighborhood":
       return v.length >= 3 ? "" : "Bairro muito curto (mín. 3 caracteres)."
     case "zipCode":
       return v.replace(/\D/g, "").length === 8 ? "" : "CEP deve ter 8 dígitos."
     case "city":
-      return v.length >= 3 ? "" : "Cidade muito curta (mín. 3 caracteres)."
+      if (v.length < 3) return "Cidade muito curta (mín. 3 caracteres)."
+      return hasLetter(v) ? "" : "Cidade inválida (informe o nome da cidade)."
     case "state":
       return v ? "" : "Selecione o estado."
     case "academyId":
@@ -282,7 +292,7 @@ export default function Cadastro() {
               type="date"
               value={form.birthDate}
               min={MIN_BIRTH_DATE}
-              max={TODAY_ISO}
+              max={MAX_BIRTH_DATE}
               onChange={(e) => set("birthDate", e.target.value)}
               required
             />

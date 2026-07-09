@@ -40,14 +40,20 @@ function formatTs(ts?: { seconds: number } | null): string {
 const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "0 14px 12px", whiteSpace: "nowrap" }
 const td: React.CSSProperties = { padding: "12px 14px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap" }
 
-type StatusFiltro = "all" | "active" | "pending"
+type StatusFiltro = "all" | "active" | "pending" | "inactive"
 type AbaFiltro = "all" | number // number = role id
 type SortKey = "validUntil" | "lastPaymentAt" | null
+
+// Pluraliza rótulos em português (NEW-03): "Professor" -> "Professores",
+// "Atleta" -> "Atletas". Palavras terminadas em "r" recebem "es".
+function pluralize(label: string): string {
+  return /r$/i.test(label) ? `${label}es` : `${label}s`
+}
 
 // Abas por tipo de usuário (BUG-20). Deriva dos rótulos de role.
 const ABAS: { key: AbaFiltro; label: string }[] = [
   { key: "all", label: "Todos" },
-  ...Object.entries(ROLE_LABELS).map(([id, label]) => ({ key: Number(id), label: `${label}s` })),
+  ...Object.entries(ROLE_LABELS).map(([id, label]) => ({ key: Number(id), label: pluralize(label) })),
 ]
 
 export default function Admin() {
@@ -95,7 +101,7 @@ export default function Admin() {
         cpf: a.cpf,
         month: currentMonth(),
         adminUid: user.uid,
-        affiliate: { uid: a.uid, fullName: a.fullName, academyId: a.academyId, belt: a.belt, photoURL: a.photoURL, cardId: a.cardId },
+        affiliate: { uid: a.uid, fullName: a.fullName, academyId: a.academyId, belt: a.belt, photoURL: a.photoURL, birthDate: a.birthDate, cardId: a.cardId },
       })
       setRows((rs) => rs.map((r) => r.cpf === a.cpf
         ? { ...r, status: "active", validUntil, lastPaymentAt: { seconds: Date.now() / 1000 } }
@@ -136,13 +142,19 @@ export default function Admin() {
   const visiveis = useMemo(() => {
     let list = rows
     if (aba !== "all") list = list.filter((r) => r.role === aba)
-    if (filtro === "active") {
+    // BUG-07: removidos ficam ocultos por padrão; só aparecem no filtro "Removidos".
+    if (filtro === "inactive") {
+      list = list.filter((r) => effectiveStatus(r.status, r.validUntil) === "inactive")
+    } else if (filtro === "active") {
       list = list.filter((r) => effectiveStatus(r.status, r.validUntil) === "active")
     } else if (filtro === "pending") {
       list = list.filter((r) => {
         const s = effectiveStatus(r.status, r.validUntil)
         return s !== "active" && s !== "inactive"
       })
+    } else {
+      // "all" exclui removidos (visíveis apenas via filtro específico).
+      list = list.filter((r) => effectiveStatus(r.status, r.validUntil) !== "inactive")
     }
     const q = busca.trim().toLowerCase()
     if (q) {
@@ -196,7 +208,12 @@ export default function Admin() {
               {resumoItem("ativos", ativos, "active", "#22c55e")}
               <span style={{ color: "#333" }}>·</span>
               {resumoItem("pendentes", pendentes, "pending", "#F0B90B")}
-              {inativos > 0 && <span style={{ color: "#666", fontSize: 13, marginLeft: 4 }}>· {inativos} removidos</span>}
+              {inativos > 0 && (
+                <>
+                  <span style={{ color: "#333" }}>·</span>
+                  {resumoItem("removidos", inativos, "inactive", "#888")}
+                </>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -240,7 +257,7 @@ export default function Admin() {
         ) : visiveis.length === 0 ? (
           <p style={{ color: "#666", fontSize: 14 }}>Nenhum filiado encontrado para os filtros atuais.</p>
         ) : (
-          <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, overflow: "auto" }}>
+          <div className="dark-scroll" style={{ background: "#111", border: "1px solid #222", borderRadius: 10, overflow: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
               <thead>
                 <tr>

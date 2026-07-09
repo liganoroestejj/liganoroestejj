@@ -59,6 +59,7 @@ export default function Verificar() {
               belt: card.belt,
               academyId: card.academyId,
               cpf: card.cpf,
+              birthDate: card.birthDate,
               validUntil: card.validUntil,
               cardId: cardId!,
             }}

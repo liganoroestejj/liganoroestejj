@@ -22,6 +22,7 @@ const navLinks = [
 
 export default function HeaderMobile() {
   const [open, setOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false) // dropdown Login/Filiar-se (MELH-05)
   const { pathname } = useLocation()
   const { user } = useAuth()
   return (
@@ -34,17 +35,41 @@ export default function HeaderMobile() {
           <BoltIcon />
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "#fff", letterSpacing: 3 }}>LNJJP</span>
         </Link>
-        <div style={{ justifySelf: "end", display: "flex", gap: 6 }}>
-          {!user && (
-            <Link to="/cadastro" aria-label="Filiar-se" style={authBtn}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-              <span style={authLbl}>Filiar</span>
+        <div style={{ justifySelf: "end", display: "flex", gap: 6, position: "relative" }}>
+          {user ? (
+            <Link to="/painel" aria-label="Minha conta" style={authBtn}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span style={authLbl}>Conta</span>
             </Link>
+          ) : (
+            // MELH-05: botão único "Acessar" com dropdown (Login / Filiar-se),
+            // replicando o comportamento aprovado no Desktop.
+            <>
+              <button
+                onClick={() => setAuthOpen((o) => !o)}
+                aria-haspopup="true"
+                aria-expanded={authOpen}
+                aria-label="Acessar"
+                style={{ ...authBtn, background: "rgba(255,255,255,0.06)", border: "1px solid #333", cursor: "pointer" }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span style={authLbl}>Acessar</span>
+              </button>
+              {authOpen && (
+                <>
+                  <div onClick={() => setAuthOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
+                  <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 8, background: "#161616", border: "1px solid #2e2e2e", borderRadius: 8, boxShadow: "0 10px 30px rgba(0,0,0,0.5)", minWidth: 150, overflow: "hidden", zIndex: 100 }}>
+                    <Link to="/login" onClick={() => setAuthOpen(false)} style={{ display: "block", padding: "12px 16px", color: "#ddd", fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #242424" }}>
+                      Login
+                    </Link>
+                    <Link to="/cadastro" onClick={() => setAuthOpen(false)} style={{ display: "block", padding: "12px 16px", color: "#F0B90B", fontSize: 13, fontWeight: 700, textDecoration: "none", letterSpacing: 1, textTransform: "uppercase" }}>
+                      Filiar-se
+                    </Link>
+                  </div>
+                </>
+              )}
+            </>
           )}
-          <Link to={user ? "/painel" : "/login"} aria-label={user ? "Minha conta" : "Login"} style={authBtn}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span style={authLbl}>{user ? "Conta" : "Login"}</span>
-          </Link>
         </div>
       </header>
       {open && (

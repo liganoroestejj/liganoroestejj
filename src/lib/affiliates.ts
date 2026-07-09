@@ -47,6 +47,7 @@ export interface PublicCard {
   belt: number
   status: string
   photoURL?: string
+  birthDate?: string // NEW-04: exibido na carteirinha validada via QR
   validUntil: string
 }
 
@@ -135,6 +136,7 @@ export interface AffiliateCardData {
   academyId: number
   belt: number
   photoURL?: string
+  birthDate?: string
   cardId?: string
 }
 
@@ -177,6 +179,7 @@ export async function confirmPayment(params: {
     belt: params.affiliate.belt,
     status: "active",
     photoURL: params.affiliate.photoURL ?? "",
+    birthDate: params.affiliate.birthDate ?? "",
     validUntil,
   }
   await setDoc(doc(db, "publicCards", cardId), card)
@@ -199,6 +202,7 @@ export interface AdminAffiliate {
   role: number
   status: string
   photoURL?: string
+  birthDate?: string
   validUntil?: string
   cardId?: string
   lastPaymentAt?: { seconds: number } | null

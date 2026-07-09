@@ -8,7 +8,7 @@ const BoltIcon = () => (
 
 const links = [
   { label: "Calendário de Eventos", to: "/calendario" },
-  { label: "Ranking 2026", to: "/ranking" },
+  { label: "Ranking", to: "/ranking" },
   { label: "Fazer Filiação", to: "/cadastro" },
   { label: "Academias Filiadas", to: "/academias" },
 ]

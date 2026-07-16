@@ -88,4 +88,26 @@ describe("registerAffiliate — e-mail de confirmação", () => {
     // ...e todas as gravações acontecem (affiliate + mensalidade + cpfRegistry).
     expect(mockSetDoc).toHaveBeenCalledTimes(3)
   })
+
+  it("reverte a conta órfã se a gravação da filiação falhar", async () => {
+    const mockDelete = jest.fn().mockResolvedValue(undefined)
+    mockCreateUser.mockResolvedValueOnce({ user: { uid: "u1", delete: mockDelete } })
+    // A 1ª escrita (a própria filiação) falha.
+    mockSetDoc.mockRejectedValueOnce(new Error("firestore offline"))
+
+    await expect(registerAffiliate(input)).rejects.toThrow()
+
+    // A conta recém-criada é apagada (rollback) e nada mais é gravado.
+    expect(mockDelete).toHaveBeenCalledTimes(1)
+    expect(mockSetDoc).toHaveBeenCalledTimes(1)
+  })
+
+  it("conclui o cadastro mesmo se as escritas secundárias falharem", async () => {
+    // Filiação grava (1ª), mas a mensalidade (2ª) falha: não deve reverter.
+    mockSetDoc.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("offline"))
+
+    const res = await registerAffiliate(input)
+
+    expect(res).toEqual({ cpf: "11144477735", uid: "u1" })
+  })
 })

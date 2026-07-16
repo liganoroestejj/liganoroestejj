@@ -11,21 +11,24 @@ export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
+  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [lembrar, setLembrar] = useState(false)
   const [erro, setErro] = useState("")
   const [carregando, setCarregando] = useState(false)
   const [aviso, setAviso] = useState("")
   const [enviandoReset, setEnviandoReset] = useState(false)
 
-  // Carrega credenciais salvas, se "lembrar-me" estava ativo.
+  // Carrega o e-mail salvo, se "lembrar-me" estava ativo. Nunca guardamos a
+  // senha: o Firebase já mantém a sessão; salvar a senha seria expô-la em claro.
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY)
     if (saved) {
       try {
-        const { email, senha } = JSON.parse(saved)
-        setEmail(email ?? "")
-        setSenha(senha ?? "")
-        setLembrar(true)
+        const { email } = JSON.parse(saved)
+        if (email) {
+          setEmail(email)
+          setLembrar(true)
+        }
       } catch { /* ignora dados inválidos */ }
     }
   }, [])
@@ -56,7 +59,7 @@ export default function Login() {
     try {
       await signIn(email, senha)
       if (lembrar) {
-        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email, senha }))
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email }))
       } else {
         localStorage.removeItem(REMEMBER_KEY)
       }
@@ -96,14 +99,36 @@ export default function Login() {
         />
 
         <label style={s.label}>Senha</label>
-        <input
-          style={s.input}
-          type="password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
+        <div style={{ position: "relative", marginBottom: 18 }}>
+          <input
+            style={{ ...s.input, marginBottom: 0, paddingRight: 44 }}
+            type={mostrarSenha ? "text" : "password"}
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setMostrarSenha((v) => !v)}
+            aria-label={mostrarSenha ? "Esconder senha" : "Mostrar senha"}
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", color: "#999" }}
+          >
+            {mostrarSenha ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                <line x1="2" x2="22" y1="2" y2="22" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
 
         <div style={{ textAlign: "right", marginBottom: 14 }}>
           <button

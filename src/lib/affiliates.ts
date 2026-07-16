@@ -31,11 +31,26 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 }
 
-/** Validade: 1 mês após a data informada (padrão: hoje). ISO yyyy-mm-dd. */
-function addOneMonth(from = new Date()): string {
-  const d = new Date(from)
+/** Data local no formato ISO yyyy-mm-dd (sem deslocamento de fuso). */
+function toISODate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * Nova validade da mensalidade ao confirmar um pagamento.
+ * Se a filiação ainda está vigente (validade futura), soma 1 mês a partir
+ * dela — o atleta não perde os dias que já pagou. Caso contrário (primeira
+ * ativação ou em atraso), conta 1 mês a partir de hoje.
+ */
+function nextValidUntil(currentValidUntil?: string): string {
+  const today = toISODate(new Date())
+  const base = currentValidUntil && currentValidUntil > today ? currentValidUntil : today
+  const d = new Date(`${base}T00:00:00`)
   d.setMonth(d.getMonth() + 1)
-  return d.toISOString().slice(0, 10)
+  return toISODate(d)
 }
 
 /** Dados públicos da carteirinha (sem informação sensível). */
@@ -80,40 +95,56 @@ export async function registerAffiliate(input: AffiliateInput) {
     // Ignora: o cadastro já foi criado; o e-mail é só uma conveniência.
   }
 
+  // Gravação da filiação — a ÚNICA escrita crítica. Se ela falhar, a conta de
+  // acesso recém-criada fica órfã (login sem filiação, e-mail "preso"): então
+  // revertemos apagando essa conta, liberando o e-mail para uma nova tentativa
+  // limpa. Não usamos Cloud Functions — o rollback é feito aqui no cliente.
   // A carteirinha (cardId/publicCard) só é gerada após o 1º pagamento confirmado.
-  await setDoc(doc(db, "affiliates", cpf), {
-    uid: cred.user.uid,
-    cpf,
-    fullName: input.fullName,
-    birthDate: input.birthDate,
-    gender: input.gender,
-    email: input.email,
-    instagram: input.instagram,
-    phone: input.phone,
-    address: input.address,
-    neighborhood: input.neighborhood,
-    zipCode: input.zipCode,
-    city: input.city,
-    state: input.state,
-    academyId: input.academyId,
-    belt: input.belt,
-    category: category.id,
-    role: input.role,
-    status: "pending",
-    createdAt: serverTimestamp(),
-  })
+  try {
+    await setDoc(doc(db, "affiliates", cpf), {
+      uid: cred.user.uid,
+      cpf,
+      fullName: input.fullName,
+      birthDate: input.birthDate,
+      gender: input.gender,
+      email: input.email,
+      instagram: input.instagram,
+      phone: input.phone,
+      address: input.address,
+      neighborhood: input.neighborhood,
+      zipCode: input.zipCode,
+      city: input.city,
+      state: input.state,
+      academyId: input.academyId,
+      belt: input.belt,
+      category: category.id,
+      role: input.role,
+      status: "pending",
+      createdAt: serverTimestamp(),
+    })
+  } catch (err) {
+    await cred.user.delete().catch(() => { /* melhor esforço */ })
+    throw err
+  }
 
+  // Escritas secundárias: a filiação já existe, então uma falha aqui NÃO deve
+  // reverter nem bloquear o cadastro. A mensalidade é recriada pelo admin ao
+  // confirmar o pagamento (setDoc com merge); o índice de CPF é reforçado pelo
+  // id do doc da filiação (= CPF) + regras, que impedem duplicidade real.
   const month = currentMonth()
-  await setDoc(doc(db, "affiliates", cpf, "payments", month), {
-    month,
-    amount: MEMBERSHIP_FEE,
-    status: "pending",
-    method: "whatsapp",
-    createdAt: serverTimestamp(),
-  })
-
-  // Índice público de CPFs (só existência) para a checagem da Etapa 1.
-  await setDoc(doc(db, "cpfRegistry", cpf), { createdAt: serverTimestamp() })
+  try {
+    await setDoc(doc(db, "affiliates", cpf, "payments", month), {
+      month,
+      amount: MEMBERSHIP_FEE,
+      status: "pending",
+      method: "whatsapp",
+      createdAt: serverTimestamp(),
+    })
+    // Índice público de CPFs (só existência) para a checagem da Etapa 1.
+    await setDoc(doc(db, "cpfRegistry", cpf), { createdAt: serverTimestamp() })
+  } catch {
+    // Ignora: secundárias, recuperáveis. A filiação já foi registrada.
+  }
 
   return { cpf, uid: cred.user.uid }
 }
@@ -138,6 +169,7 @@ export interface AffiliateCardData {
   photoURL?: string
   birthDate?: string
   cardId?: string
+  validUntil?: string // validade atual, para renovar sem perder dias pagos
 }
 
 /**
@@ -152,7 +184,7 @@ export async function confirmPayment(params: {
   affiliate: AffiliateCardData
 }): Promise<{ cardId: string; validUntil: string }> {
   const cpf = cleanCpf(params.cpf)
-  const validUntil = addOneMonth()
+  const validUntil = nextValidUntil(params.affiliate.validUntil)
   const cardId = params.affiliate.cardId ?? crypto.randomUUID()
 
   await setDoc(doc(db, "affiliates", cpf, "payments", params.month), {

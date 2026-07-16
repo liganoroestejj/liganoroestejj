@@ -2,7 +2,7 @@ const stats = [
   { n: "50+", label: "Atletas Filiados" },
   { n: "6",   label: "Etapas em 2026" },
   { n: "15+", label: "Academias" },
-  { n: "1",   label: "Anos de Liga" },
+  { n: "4",   label: "Anos de Liga" },
 ]
 
 const icons = [

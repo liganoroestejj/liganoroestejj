@@ -58,7 +58,7 @@ describe("Tela de login", () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
-  it("salva credenciais no localStorage quando 'Lembrar-me' está marcado", async () => {
+  it("salva apenas o e-mail no localStorage quando 'Lembrar-me' está marcado (nunca a senha)", async () => {
     mockSignIn.mockResolvedValueOnce(undefined)
     const { container } = renderLogin()
     fireEvent.change(emailInput(container), { target: { value: "a@b.com" } })
@@ -66,17 +66,28 @@ describe("Tela de login", () => {
     fireEvent.click(screen.getByRole("checkbox"))
     fireEvent.click(screen.getByText("Entrar"))
     await waitFor(() =>
-      expect(localStorage.getItem("lnjjp_login")).toBe(
-        JSON.stringify({ email: "a@b.com", senha: "123456" }),
-      ),
+      expect(localStorage.getItem("lnjjp_login")).toBe(JSON.stringify({ email: "a@b.com" })),
     )
+    // A senha nunca deve ser persistida.
+    expect(localStorage.getItem("lnjjp_login")).not.toContain("123456")
   })
 
-  it("preenche os campos a partir do localStorage ao montar", () => {
-    localStorage.setItem("lnjjp_login", JSON.stringify({ email: "saved@x.com", senha: "secret" }))
+  it("alterna a visibilidade da senha pelo botão do olhinho", () => {
+    const { container } = renderLogin()
+    const senha = senhaInput(container)
+    fireEvent.change(senha, { target: { value: "123456" } })
+    expect(senha.type).toBe("password")
+    fireEvent.click(screen.getByLabelText("Mostrar senha"))
+    expect(senha.type).toBe("text")
+    fireEvent.click(screen.getByLabelText("Esconder senha"))
+    expect(senha.type).toBe("password")
+  })
+
+  it("preenche só o e-mail a partir do localStorage ao montar (senha continua vazia)", () => {
+    localStorage.setItem("lnjjp_login", JSON.stringify({ email: "saved@x.com" }))
     const { container } = renderLogin()
     expect(emailInput(container).value).toBe("saved@x.com")
-    expect(senhaInput(container).value).toBe("secret")
+    expect(senhaInput(container).value).toBe("")
     expect(screen.getByRole("checkbox")).toBeChecked()
   })
 })

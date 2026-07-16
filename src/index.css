@@ -1,6 +1,7 @@
 @import "./styles/tokens.css";
 
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap");
+/* As fontes do Google são carregadas via <link> no index.html (preconnect +
+   sem bloquear o CSS), o que evita o aviso de ordem de @import no build. */
 
 * {
   box-sizing: border-box;

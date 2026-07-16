@@ -101,7 +101,7 @@ export default function Admin() {
         cpf: a.cpf,
         month: currentMonth(),
         adminUid: user.uid,
-        affiliate: { uid: a.uid, fullName: a.fullName, academyId: a.academyId, belt: a.belt, photoURL: a.photoURL, birthDate: a.birthDate, cardId: a.cardId },
+        affiliate: { uid: a.uid, fullName: a.fullName, academyId: a.academyId, belt: a.belt, photoURL: a.photoURL, birthDate: a.birthDate, cardId: a.cardId, validUntil: a.validUntil },
       })
       setRows((rs) => rs.map((r) => r.cpf === a.cpf
         ? { ...r, status: "active", validUntil, lastPaymentAt: { seconds: Date.now() / 1000 } }

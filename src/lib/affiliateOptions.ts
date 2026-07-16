@@ -35,12 +35,26 @@ export const STATES = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ]
 
-// Categorias por faixa etária. PLACEHOLDER — ajustar quando o cliente
-// enviar a tabela oficial. Calculada pela data de nascimento.
+// Divisão oficial por idade da Liga. Calculada pela data de nascimento.
+// Faixas contíguas de 4 a 200 anos (registro exige idade mínima de 4 — ver
+// MIN_AGE no Cadastro). Obs.: a regra de competição "a partir de 16 anos pode
+// lutar no Adulto (branca só 18+)" é elegibilidade de disputa, não a categoria
+// de idade do atleta — aqui guardamos sempre a categoria pela idade real.
 export const CATEGORY_RANGES: { id: number; label: string; min: number; max: number }[] = [
-  { id: 1, label: "Infantil (até 17 anos)", min: 0, max: 17 },
-  { id: 2, label: "Adulto (18 a 29 anos)", min: 18, max: 29 },
-  { id: 3, label: "Master (30 anos ou mais)", min: 30, max: 200 },
+  { id: 1, label: "Pré-Mirim", min: 4, max: 5 },
+  { id: 2, label: "Mirim", min: 6, max: 7 },
+  { id: 3, label: "Infantil A", min: 8, max: 9 },
+  { id: 4, label: "Infantil B", min: 10, max: 11 },
+  { id: 5, label: "Infanto A", min: 12, max: 13 },
+  { id: 6, label: "Infanto B", min: 14, max: 15 },
+  { id: 7, label: "Juvenil", min: 16, max: 17 },
+  { id: 8, label: "Adulto", min: 18, max: 29 },
+  { id: 9, label: "Master 1", min: 30, max: 35 },
+  { id: 10, label: "Master 2", min: 36, max: 40 },
+  { id: 11, label: "Master 3", min: 41, max: 45 },
+  { id: 12, label: "Master 4", min: 46, max: 50 },
+  { id: 13, label: "Master 5", min: 51, max: 55 },
+  { id: 14, label: "Master 6", min: 56, max: 200 },
 ]
 
 /** Idade em anos a partir de uma data ISO (yyyy-mm-dd). */
@@ -61,10 +75,10 @@ export function categoryLabelById(id: number): string {
 /** Categoria (id + label) calculada pela data de nascimento. */
 export function categoryFromBirthDate(iso: string) {
   const age = ageFromBirthDate(iso)
-  return (
-    CATEGORY_RANGES.find((c) => age >= c.min && age <= c.max) ??
-    CATEGORY_RANGES[CATEGORY_RANGES.length - 1]
-  )
+  const match = CATEGORY_RANGES.find((c) => age >= c.min && age <= c.max)
+  if (match) return match
+  // Fora das faixas: abaixo da mínima → primeira; acima → última.
+  return age < CATEGORY_RANGES[0].min ? CATEGORY_RANGES[0] : CATEGORY_RANGES[CATEGORY_RANGES.length - 1]
 }
 
 /**

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
 import { adminSoftDelete, confirmPayment, listAffiliates, type AdminAffiliate } from "../../lib/affiliates"
 import { ACADEMIES, BELT_LABELS, effectiveStatus, ROLE_LABELS } from "../../lib/affiliateOptions"
+import { useMediaQuery } from "../../hooks/useMediaQuery"
+import { formatCpf } from "../../lib/cpf"
 
 const academyName = (id: number) => ACADEMIES.find((a) => a.id === id)?.name ?? "—"
 
@@ -37,8 +39,8 @@ function formatTs(ts?: { seconds: number } | null): string {
   return new Date(ts.seconds * 1000).toLocaleDateString("pt-BR")
 }
 
-const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "0 14px 12px", whiteSpace: "nowrap" }
-const td: React.CSSProperties = { padding: "12px 14px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap" }
+const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "14px 16px", background: "#141414", borderBottom: "1px solid #242424", whiteSpace: "nowrap" }
+const td: React.CSSProperties = { padding: "16px 16px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap", verticalAlign: "middle" }
 
 type StatusFiltro = "all" | "active" | "pending" | "inactive"
 type AbaFiltro = "all" | number // number = role id
@@ -59,6 +61,10 @@ const ABAS: { key: AbaFiltro; label: string }[] = [
 export default function Admin() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  // Breakpoint próprio da tela: a tabela de filiados tem 720px de largura
+  // mínima, então abaixo disso ela é trocada por cards (MOBILE_QUERY global,
+  // 1180px, colapsaria cedo demais aqui).
+  const isMobile = useMediaQuery("(max-width: 860px)")
   const [rows, setRows] = useState<AdminAffiliate[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState("")
@@ -66,7 +72,7 @@ export default function Admin() {
   const [alvoPagar, setAlvoPagar] = useState<AdminAffiliate | null>(null)
   const [alvoRemover, setAlvoRemover] = useState<AdminAffiliate | null>(null)
   const [removendo, setRemovendo] = useState<string | null>(null)
-  const [menuAberto, setMenuAberto] = useState<string | null>(null)
+  const [menuAberto, setMenuAberto] = useState<{ cpf: string; top: number; right: number } | null>(null)
 
   // Filtros / busca / ordenação
   const [busca, setBusca] = useState("")
@@ -86,6 +92,19 @@ export default function Admin() {
       }
     })()
   }, [])
+
+  // O menu de ações é renderizado com position:fixed (fora do container que
+  // rola), então precisa fechar se a página rolar ou mudar de tamanho.
+  useEffect(() => {
+    if (!menuAberto) return
+    const fechar = () => setMenuAberto(null)
+    window.addEventListener("scroll", fechar, true)
+    window.addEventListener("resize", fechar)
+    return () => {
+      window.removeEventListener("scroll", fechar, true)
+      window.removeEventListener("resize", fechar)
+    }
+  }, [menuAberto])
 
   async function handleLogout() {
     await logout()
@@ -178,6 +197,43 @@ export default function Admin() {
 
   const sortArrow = (key: Exclude<SortKey, null>) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "")
 
+  // Botões de ação de uma linha/card (mesmo comportamento em desktop e mobile).
+  const acoes = (a: AdminAffiliate, largura?: boolean): React.ReactNode => {
+    const eff = effectiveStatus(a.status, a.validUntil)
+    if (eff === "inactive") return <span style={{ color: "#666", fontSize: 11, fontStyle: "italic" }}>Removido</span>
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: largura ? 1 : undefined }}>
+        {eff === "active" ? (
+          // BUG-05: quando ativo, não é mais um botão clicável.
+          <span title={`Ativo até ${formatDate(a.validUntil)}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, flex: largura ? 1 : undefined, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontSize: 11, fontWeight: 800, padding: "10px 12px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            ✓ Pago
+          </span>
+        ) : (
+          <button
+            onClick={() => setAlvoPagar(a)}
+            disabled={confirmando === a.cpf}
+            style={{ flex: largura ? 1 : undefined, background: "#F0B90B", color: "#0A0A0A", fontSize: 11, fontWeight: 800, padding: "10px 14px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase", border: "none", cursor: "pointer", opacity: confirmando === a.cpf ? 0.6 : 1 }}
+          >
+            {confirmando === a.cpf ? "..." : "Marcar pago"}
+          </button>
+        )}
+
+        {/* Menu de ações (M-01) */}
+        <button
+          aria-label="Ações"
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = e.currentTarget.getBoundingClientRect()
+            setMenuAberto((m) => (m?.cpf === a.cpf ? null : { cpf: a.cpf, top: r.bottom + 16, right: window.innerWidth - r.right }))
+          }}
+          style={{ background: "none", border: "1px solid #333", color: "#999", width: 34, height: 34, borderRadius: 6, cursor: "pointer", fontSize: 16, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+        >
+          ⋮
+        </button>
+      </div>
+    )
+  }
+
   const resumoItem = (label: string, count: number, key: StatusFiltro, color: string): React.ReactNode => (
     <button
       onClick={() => setFiltro((f) => (f === key ? "all" : key))}
@@ -192,7 +248,7 @@ export default function Admin() {
   )
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0A", padding: "48px 24px" }} onClick={() => setMenuAberto(null)}>
+    <div style={{ minHeight: "100vh", background: "#0A0A0A", padding: isMobile ? "32px 16px" : "48px 24px" }} onClick={() => setMenuAberto(null)}>
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
           <div>
@@ -244,7 +300,7 @@ export default function Admin() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por nome, CPF ou academia..."
-            style={{ background: "#111", border: "1px solid #2a2a2a", color: "#eee", fontSize: 13, padding: "10px 14px", borderRadius: 6, minWidth: 260, flex: "1 1 260px", maxWidth: 360, outline: "none" }}
+            style={{ background: "#111", border: "1px solid #2a2a2a", color: "#eee", fontSize: 13, padding: "12px 14px", borderRadius: 6, outline: "none", ...(isMobile ? { width: "100%" } : { minWidth: 260, flex: "1 1 260px", maxWidth: 360 }) }}
           />
         </div>
 
@@ -256,37 +312,75 @@ export default function Admin() {
           <p style={{ color: "#666", fontSize: 14 }}>Nenhum filiado ainda.</p>
         ) : visiveis.length === 0 ? (
           <p style={{ color: "#666", fontSize: 14 }}>Nenhum filiado encontrado para os filtros atuais.</p>
+        ) : isMobile ? (
+          // No mobile a tabela não cabe: cada filiado vira um card.
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {visiveis.map((a) => {
+              const eff = effectiveStatus(a.status, a.validUntil)
+              const s = STATUS[eff] ?? STATUS.pending
+              const isInactive = eff === "inactive"
+              const info = (label: string, valor: string) => (
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                  <span style={{ color: "#666" }}>{label}</span>
+                  <span style={{ color: "#ddd", textAlign: "right" }}>{valor}</span>
+                </div>
+              )
+              return (
+                <div key={a.cpf} style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 8, background: "#0A0A0A", border: "1px solid #333", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {a.photoURL ? <img src={a.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ color: isInactive ? "#888" : "#fff", fontWeight: 700, fontSize: 15, textDecoration: isInactive ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis" }}>{a.fullName}</div>
+                      <div style={{ color: "#666", fontSize: 11 }}>{formatCpf(a.cpf)}</div>
+                    </div>
+                    <span style={{ background: s.bg, color: s.color, fontSize: 10, fontWeight: 800, padding: "4px 9px", borderRadius: 20, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>{s.text}</span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 14, borderTop: "1px solid #1c1c1c" }}>
+                    {info("Academia", academyName(a.academyId))}
+                    {info("Faixa", BELT_LABELS[a.belt] ?? "—")}
+                    {info("Tipo", ROLE_LABELS[a.role] ?? "—")}
+                    {info("Últ. pagamento", formatTs(a.lastPaymentAt))}
+                    {info("Validade", formatDate(a.validUntil))}
+                  </div>
+
+                  <div style={{ display: "flex", marginTop: 16 }}>{acoes(a, true)}</div>
+                </div>
+              )
+            })}
+          </div>
         ) : (
           <div className="dark-scroll" style={{ background: "#111", border: "1px solid #222", borderRadius: 10, overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
               <thead>
                 <tr>
-                  <th style={{ ...th, paddingLeft: 18 }}>Atleta</th>
+                  <th style={{ ...th, paddingLeft: 22 }}>Atleta</th>
                   <th style={th}>Academia</th>
                   <th style={th}>Faixa</th>
                   <th style={th}>Tipo</th>
                   <th style={th}>Status</th>
                   <th style={{ ...th, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("lastPaymentAt")}>Últ. pagamento{sortArrow("lastPaymentAt")}</th>
                   <th style={{ ...th, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("validUntil")}>Validade{sortArrow("validUntil")}</th>
-                  <th style={{ ...th, textAlign: "right", paddingRight: 18 }}>Ação</th>
+                  <th style={{ ...th, textAlign: "right", paddingRight: 22 }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
                 {visiveis.map((a) => {
                   const eff = effectiveStatus(a.status, a.validUntil)
                   const s = STATUS[eff] ?? STATUS.pending
-                  const isActive = eff === "active"
                   const isInactive = eff === "inactive"
                   return (
                     <tr key={a.cpf}>
-                      <td style={{ ...td, paddingLeft: 18 }}>
+                      <td style={{ ...td, paddingLeft: 22 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <div style={{ width: 40, height: 40, borderRadius: 8, background: "#0A0A0A", border: "1px solid #333", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {a.photoURL ? <img src={a.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
                           </div>
                           <div>
                             <div style={{ color: isInactive ? "#888" : "#fff", fontWeight: 700, textDecoration: isInactive ? "line-through" : "none" }}>{a.fullName}</div>
-                            <div style={{ color: "#666", fontSize: 11 }}>{a.cpf}</div>
+                            <div style={{ color: "#666", fontSize: 11 }}>{formatCpf(a.cpf)}</div>
                           </div>
                         </div>
                       </td>
@@ -296,50 +390,8 @@ export default function Admin() {
                       <td style={td}><span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 20, letterSpacing: 0.5, textTransform: "uppercase" }}>{s.text}</span></td>
                       <td style={td}>{formatTs(a.lastPaymentAt)}</td>
                       <td style={td}>{formatDate(a.validUntil)}</td>
-                      <td style={{ ...td, textAlign: "right", paddingRight: 18 }}>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, position: "relative" }}>
-                          {isInactive ? (
-                            <span style={{ color: "#666", fontSize: 11, fontStyle: "italic" }}>Removido</span>
-                          ) : isActive ? (
-                            // BUG-05: quando ativo, não é mais um botão clicável.
-                            <span title={`Ativo até ${formatDate(a.validUntil)}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontSize: 11, fontWeight: 800, padding: "8px 12px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                              ✓ Pago
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => setAlvoPagar(a)}
-                              disabled={confirmando === a.cpf}
-                              style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 11, fontWeight: 800, padding: "8px 14px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase", border: "none", cursor: "pointer", opacity: confirmando === a.cpf ? 0.6 : 1 }}
-                            >
-                              {confirmando === a.cpf ? "..." : "Marcar pago"}
-                            </button>
-                          )}
-
-                          {/* Menu de ações (M-01) */}
-                          {!isInactive && (
-                            <button
-                              aria-label="Ações"
-                              onClick={(e) => { e.stopPropagation(); setMenuAberto((m) => (m === a.cpf ? null : a.cpf)) }}
-                              style={{ background: "none", border: "1px solid #333", color: "#999", width: 30, height: 30, borderRadius: 5, cursor: "pointer", fontSize: 16, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
-                            >
-                              ⋮
-                            </button>
-                          )}
-                          {menuAberto === a.cpf && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: "#181818", border: "1px solid #2e2e2e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 20, minWidth: 170, overflow: "hidden" }}
-                            >
-                              <button
-                                onClick={() => { setMenuAberto(null); setAlvoRemover(a) }}
-                                disabled={removendo === a.cpf}
-                                style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#ef4444", fontSize: 13, fontWeight: 600, padding: "11px 14px", cursor: "pointer" }}
-                              >
-                                Remover atleta
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                      <td style={{ ...td, textAlign: "right", paddingRight: 22 }}>
+                        <div style={{ display: "inline-flex" }}>{acoes(a)}</div>
                       </td>
                     </tr>
                   )
@@ -349,6 +401,27 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Menu de ações (M-01) — fora do container com overflow para não ser
+          cortado nem criar barra de rolagem ao abrir. */}
+      {menuAberto && (() => {
+        const alvo = visiveis.find((r) => r.cpf === menuAberto.cpf)
+        if (!alvo) return null
+        return (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: "fixed", top: menuAberto.top, right: menuAberto.right, background: "#181818", border: "1px solid #2e2e2e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 50, minWidth: 180, overflow: "hidden", padding: 4 }}
+          >
+            <button
+              onClick={() => { setMenuAberto(null); setAlvoRemover(alvo) }}
+              disabled={removendo === alvo.cpf}
+              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#ef4444", fontSize: 13, fontWeight: 600, padding: "11px 14px", borderRadius: 5, cursor: "pointer" }}
+            >
+              Remover atleta
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Modal de confirmação de pagamento */}
       {alvoPagar && (

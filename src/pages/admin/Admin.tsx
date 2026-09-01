@@ -39,8 +39,8 @@ function formatTs(ts?: { seconds: number } | null): string {
   return new Date(ts.seconds * 1000).toLocaleDateString("pt-BR")
 }
 
-const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "14px 16px", background: "#141414", borderBottom: "1px solid #242424", whiteSpace: "nowrap" }
-const td: React.CSSProperties = { padding: "16px 16px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap", verticalAlign: "middle" }
+const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "14px 16px", background: "#141414", borderBottom: "1px solid #242424", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+const td: React.CSSProperties = { padding: "16px 16px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap", verticalAlign: "middle", overflow: "hidden", textOverflow: "ellipsis" }
 
 type StatusFiltro = "all" | "active" | "pending" | "inactive"
 type AbaFiltro = "all" | number // number = role id
@@ -61,10 +61,9 @@ const ABAS: { key: AbaFiltro; label: string }[] = [
 export default function Admin() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  // Breakpoint próprio da tela: a tabela de filiados tem 720px de largura
-  // mínima, então abaixo disso ela é trocada por cards (MOBILE_QUERY global,
-  // 1180px, colapsaria cedo demais aqui).
-  const isMobile = useMediaQuery("(max-width: 860px)")
+  // Breakpoint próprio da tela: abaixo disso as 8 colunas não cabem sem
+  // espremer o botão de ação, então a lista vira cards.
+  const isMobile = useMediaQuery("(max-width: 1024px)")
   const [rows, setRows] = useState<AdminAffiliate[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState("")
@@ -249,7 +248,7 @@ export default function Admin() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0A0A", padding: isMobile ? "32px 16px" : "48px 24px" }} onClick={() => setMenuAberto(null)}>
-      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
           <div>
             <div style={{ color: "#F0B90B", fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", marginBottom: 6 }}>
@@ -353,7 +352,17 @@ export default function Admin() {
           </div>
         ) : (
           <div className="dark-scroll" style={{ background: "#111", border: "1px solid #222", borderRadius: 10, overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720, tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "20%" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th style={{ ...th, paddingLeft: 22 }}>Atleta</th>
@@ -374,17 +383,17 @@ export default function Admin() {
                   return (
                     <tr key={a.cpf}>
                       <td style={{ ...td, paddingLeft: 22 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                           <div style={{ width: 40, height: 40, borderRadius: 8, background: "#0A0A0A", border: "1px solid #333", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {a.photoURL ? <img src={a.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
                           </div>
-                          <div>
-                            <div style={{ color: isInactive ? "#888" : "#fff", fontWeight: 700, textDecoration: isInactive ? "line-through" : "none" }}>{a.fullName}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div title={a.fullName} style={{ color: isInactive ? "#888" : "#fff", fontWeight: 700, textDecoration: isInactive ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis" }}>{a.fullName}</div>
                             <div style={{ color: "#666", fontSize: 11 }}>{formatCpf(a.cpf)}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={td}>{academyName(a.academyId)}</td>
+                      <td style={td} title={academyName(a.academyId)}>{academyName(a.academyId)}</td>
                       <td style={td}>{BELT_LABELS[a.belt] ?? "—"}</td>
                       <td style={td}>{ROLE_LABELS[a.role] ?? "—"}</td>
                       <td style={td}><span style={{ background: s.bg, color: s.color, fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 20, letterSpacing: 0.5, textTransform: "uppercase" }}>{s.text}</span></td>

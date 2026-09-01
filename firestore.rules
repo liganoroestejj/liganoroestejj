@@ -35,7 +35,17 @@ service cloud.firestore {
                  'photoURL',
                  'email', 'instagram', 'phone', 'address',
                  'neighborhood', 'zipCode', 'city', 'state'
-               ]));
+               ]))
+        // Refiliação: um atleta removido (status 'inactive') teve o CPF
+        // liberado no cpfRegistry, então pode se cadastrar de novo. O doc usa
+        // o CPF como id e já existe, logo o cadastro chega aqui como update —
+        // e vale as mesmas restrições do create (nasce pendente, sem
+        // carteirinha nem validade).
+        || (request.auth != null
+            && resource.data.status == 'inactive'
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && !request.resource.data.keys().hasAny(['validUntil', 'cardId']));
       allow delete: if isAdmin();
 
       // Mensalidades.

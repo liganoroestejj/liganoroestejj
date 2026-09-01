@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth"
-import { collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { cleanCpf } from "./cpf"
 import { compressSquareImage } from "./image"
@@ -252,11 +252,17 @@ export async function adminSetValidUntil(cpf: string, validUntil: string, cardId
  * inativo. A carteirinha pública é invalidada.
  */
 export async function adminSoftDelete(cpf: string, cardId?: string) {
-  await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), {
+  const id = cleanCpf(cpf)
+  await updateDoc(doc(db, "affiliates", id), {
     status: "inactive",
     inactivatedAt: serverTimestamp(),
   })
   if (cardId) await updateDoc(doc(db, "publicCards", cardId), { status: "inactive" })
+  // Libera o CPF: o índice `cpfRegistry` é o que bloqueia a Etapa 1 do
+  // cadastro. Sem apagá-lo, o atleta removido nunca conseguiria se filiar de
+  // novo. O registro em `affiliates` continua lá (histórico) e é sobrescrito
+  // se houver um novo cadastro com o mesmo CPF (ver firestore.rules).
+  await deleteDoc(doc(db, "cpfRegistry", id))
 }
 
 // Campos que o próprio filiado pode editar no perfil (dados de contato/endereço).

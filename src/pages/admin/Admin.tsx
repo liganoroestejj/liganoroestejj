@@ -473,7 +473,7 @@ export default function Admin() {
             </h2>
             <p style={{ color: "#aaa", fontSize: 14, lineHeight: 1.5, margin: "0 0 22px" }}>
               Remover <strong style={{ color: "#fff" }}>{alvoRemover.fullName}</strong> da lista de filiados?
-              <br />O registro é <strong style={{ color: "#fff" }}>mantido</strong> (histórico preservado) e apenas marcado como inativo. A carteirinha será invalidada.
+              <br />O registro é <strong style={{ color: "#fff" }}>mantido</strong> (histórico preservado) e apenas marcado como inativo. A carteirinha será invalidada e o CPF ficará <strong style={{ color: "#fff" }}>liberado</strong> para uma nova filiação.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button

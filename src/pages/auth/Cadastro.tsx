@@ -5,13 +5,13 @@ import { cleanCpf, formatCpf, isValidCpf } from "../../lib/cpf"
 import { formatCep, formatPhone } from "../../lib/masks"
 import { hasLetter, isValidEmail, isValidName, sanitizeName } from "../../lib/sanitize"
 import { fetchAddressByCep } from "../../lib/cep"
+import { useAcademies } from "../../hooks/useAcademies"
 import {
   cpfAlreadyRegistered,
   registerAffiliate,
   type AffiliateInput,
 } from "../../lib/affiliates"
 import {
-  ACADEMIES,
   BELT_LABELS,
   categoryFromBirthDate,
   GENDER_LABELS,
@@ -45,7 +45,7 @@ type Form = {
 const empty: Form = {
   cpf: "", birthDate: "", gender: "", fullName: "", email: "", instagram: "",
   phone: "", address: "", neighborhood: "", zipCode: "", city: "", state: "RJ",
-  academyId: "1", belt: "", role: "", password: "", confirm: "",
+  academyId: "", belt: "", role: "", password: "", confirm: "",
 }
 
 // Limites coerentes para data de nascimento (evita anos absurdos: BUG-03).
@@ -121,6 +121,7 @@ const etapa2Fields: (keyof Form)[] = [
 const fieldErrStyle: React.CSSProperties = { color: "#f87171", fontSize: 12, marginTop: -10, marginBottom: 14 }
 
 export default function Cadastro() {
+  const { academies, carregando: carregandoAcademias, erro: erroAcademias } = useAcademies()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [form, setForm] = useState<Form>(empty)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -236,7 +237,7 @@ export default function Cadastro() {
   // ===== Etapa 3: sucesso + pagamento =====
   if (step === 3) {
     const msg = encodeURIComponent(
-      `Olá! Concluí minha filiação na Liga Noroeste (${form.fullName}, CPF ${form.cpf}) e quero pagar a mensalidade de R$ ${MEMBERSHIP_FEE},00.`,
+      `Olá! Concluí minha filiação na Liga Noroeste (${form.fullName}, CPF ${form.cpf}) e quero pagar a anuidade de R$ ${MEMBERSHIP_FEE},00.`,
     )
     return (
       <div style={s.page}>
@@ -245,10 +246,10 @@ export default function Cadastro() {
           <div style={s.subtitle}>Pagamento pendente</div>
           <p style={{ color: "#aaa", fontSize: 14, lineHeight: 1.5, marginBottom: 20 }}>
             Sua filiação foi registrada com sucesso. Para ativar, faça o pagamento
-            da mensalidade pelo WhatsApp.
+            da anuidade pelo WhatsApp.
           </p>
           <div style={{ background: "#0A0A0A", border: "1px solid #333", borderRadius: 6, padding: "16px 18px", marginBottom: 22 }}>
-            <div style={{ color: "#666", fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }}>Valor da mensalidade</div>
+            <div style={{ color: "#666", fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }}>Valor da anuidade</div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#F0B90B", fontSize: 40, letterSpacing: 1 }}>R$ {MEMBERSHIP_FEE},00</div>
           </div>
           <a href={`https://wa.me/${WHATSAPP_PHONE}?text=${msg}`} target="_blank" rel="noopener noreferrer" style={{ ...s.button, display: "block", textAlign: "center", textDecoration: "none" }}>
@@ -350,9 +351,19 @@ export default function Cadastro() {
             {fieldErr("state") && <div style={fieldErrStyle}>{fieldErr("state")}</div>}
 
             <label style={s.label}>Academia</label>
-            <select style={s.select} value={form.academyId} onChange={(e) => set("academyId", e.target.value)} onBlur={() => touch("academyId")}>
-              {ACADEMIES.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <select
+              style={s.select}
+              value={form.academyId}
+              onChange={(e) => set("academyId", e.target.value)}
+              onBlur={() => touch("academyId")}
+              disabled={carregandoAcademias || !!erroAcademias}
+            >
+              <option value="">
+                {carregandoAcademias ? "Carregando academias..." : "Escolha sua academia"}
+              </option>
+              {academies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
+            {erroAcademias && <div style={fieldErrStyle}>{erroAcademias}</div>}
             {fieldErr("academyId") && <div style={fieldErrStyle}>{fieldErr("academyId")}</div>}
 
             <label style={s.label}>Faixa</label>

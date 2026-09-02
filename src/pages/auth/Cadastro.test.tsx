@@ -2,6 +2,16 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import Cadastro from "./Cadastro"
 
+// Academias vêm do Firestore; aqui basta uma opção fixa (id 1) para o select.
+jest.mock("../../hooks/useAcademies", () => ({
+  useAcademies: () => ({
+    academies: [{ id: 1, name: "UP BJJ" }],
+    carregando: false,
+    erro: "",
+    recarregar: jest.fn(),
+  }),
+}))
+
 // Borda do Firebase: cpfAlreadyRegistered e registerAffiliate.
 const mockCpfExists = jest.fn()
 const mockRegister = jest.fn()

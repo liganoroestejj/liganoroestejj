@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth"
-import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { cleanCpf } from "./cpf"
 import { compressSquareImage } from "./image"
@@ -40,16 +40,16 @@ function toISODate(d: Date): string {
 }
 
 /**
- * Nova validade da mensalidade ao confirmar um pagamento.
- * Se a filiação ainda está vigente (validade futura), soma 1 mês a partir
+ * Nova validade da anuidade ao confirmar um pagamento.
+ * Se a filiação ainda está vigente (validade futura), soma 1 ano a partir
  * dela — o atleta não perde os dias que já pagou. Caso contrário (primeira
- * ativação ou em atraso), conta 1 mês a partir de hoje.
+ * ativação ou em atraso), conta 1 ano a partir de hoje.
  */
 function nextValidUntil(currentValidUntil?: string): string {
   const today = toISODate(new Date())
   const base = currentValidUntil && currentValidUntil > today ? currentValidUntil : today
   const d = new Date(`${base}T00:00:00`)
-  d.setMonth(d.getMonth() + 1)
+  d.setFullYear(d.getFullYear() + 1)
   return toISODate(d)
 }
 
@@ -77,7 +77,7 @@ export async function cpfAlreadyRegistered(cpf: string): Promise<boolean> {
 }
 
 /**
- * Cria a conta de acesso e grava a filiação + primeira mensalidade pendente.
+ * Cria a conta de acesso e grava a filiação + primeira anuidade pendente.
  * O doc da filiação usa o CPF como id (garante unicidade).
  */
 export async function registerAffiliate(input: AffiliateInput) {
@@ -128,7 +128,7 @@ export async function registerAffiliate(input: AffiliateInput) {
   }
 
   // Escritas secundárias: a filiação já existe, então uma falha aqui NÃO deve
-  // reverter nem bloquear o cadastro. A mensalidade é recriada pelo admin ao
+  // reverter nem bloquear o cadastro. A anuidade é recriada pelo admin ao
   // confirmar o pagamento (setDoc com merge); o índice de CPF é reforçado pelo
   // id do doc da filiação (= CPF) + regras, que impedem duplicidade real.
   const month = currentMonth()
@@ -173,9 +173,9 @@ export interface AffiliateCardData {
 }
 
 /**
- * Confirma o pagamento de uma mensalidade (ação do admin).
+ * Confirma o pagamento de uma anuidade (ação do admin).
  * Marca o pagamento como pago, ativa a filiação, define a validade
- * (1 mês a partir de hoje) e gera/atualiza a carteirinha pública.
+ * (1 ano a partir de hoje) e gera/atualiza a carteirinha pública.
  */
 export async function confirmPayment(params: {
   cpf: string
@@ -240,7 +240,48 @@ export interface AdminAffiliate {
   lastPaymentAt?: { seconds: number } | null
 }
 
-/** Ajusta manualmente a validade da mensalidade (admin). */
+/**
+ * Remove um pagamento confirmado por engano (ação do admin).
+ * Devolve o filiado ao estado anterior ao clique: volta a pendente, perde a
+ * validade e deixa de exibir a carteirinha. O `cardId` é PRESERVADO — assim o
+ * QR Code que o atleta já tenha impresso volta a valer quando o pagamento for
+ * refeito, em vez de virar um cartão órfão.
+ *
+ * A carteirinha pública não é apagada: fica com status "pending", para que a
+ * leitura do QR mostre "Pagamento pendente" em vez de "não encontrada" — quem
+ * confere precisa ver a pendência, não um erro de sistema.
+ */
+export async function adminRevertPayment(params: {
+  cpf: string
+  month: string
+  cardId?: string
+}) {
+  const cpf = cleanCpf(params.cpf)
+
+  await updateDoc(doc(db, "affiliates", cpf), {
+    status: "pending",
+    validUntil: deleteField(),
+    lastPaymentAt: deleteField(),
+  })
+
+  // merge: preserva `amount`, `method` e `createdAt` — o pagamento volta a ser
+  // uma cobrança pendente, exatamente como antes da confirmação.
+  await setDoc(doc(db, "affiliates", cpf, "payments", params.month), {
+    month: params.month,
+    status: "pending",
+    paidAt: deleteField(),
+    confirmedBy: deleteField(),
+  }, { merge: true })
+
+  if (params.cardId) {
+    await updateDoc(doc(db, "publicCards", params.cardId), {
+      status: "pending",
+      validUntil: "",
+    })
+  }
+}
+
+/** Ajusta manualmente a validade da anuidade (admin). */
 export async function adminSetValidUntil(cpf: string, validUntil: string, cardId?: string) {
   await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { validUntil })
   if (cardId) await updateDoc(doc(db, "publicCards", cardId), { validUntil })

@@ -23,10 +23,8 @@ export const ROLE_LABELS: Record<number, string> = {
   2: "Professor",
 }
 
-// Academias disponíveis. Por enquanto apenas uma.
-export const ACADEMIES: { id: number; name: string }[] = [
-  { id: 1, name: "Up Fight House" },
-]
+// As academias deixaram de ser fixas: vivem na coleção `academies` do
+// Firestore e são gerenciadas pelo admin (ver lib/academies.ts).
 
 // Siglas de estados (UF).
 export const STATES = [
@@ -82,7 +80,7 @@ export function categoryFromBirthDate(iso: string) {
 }
 
 /**
- * Status efetivo considerando a validade da mensalidade.
+ * Status efetivo considerando a validade da anuidade.
  * "active" cuja validade já passou vira "overdue" (deve pagar novamente).
  */
 export function effectiveStatus(status: string, validUntil?: string): string {
@@ -93,5 +91,5 @@ export function effectiveStatus(status: string, validUntil?: string): string {
   return status
 }
 
-export const MEMBERSHIP_FEE = 30
+export const MEMBERSHIP_FEE = 35
 export const WHATSAPP_PHONE = "5522981436950"

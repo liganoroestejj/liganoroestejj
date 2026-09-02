@@ -1,5 +1,6 @@
 import { QRCodeSVG } from "qrcode.react"
-import { ACADEMIES, BELT_LABELS } from "../lib/affiliateOptions"
+import { BELT_LABELS } from "../lib/affiliateOptions"
+import { useAcademies } from "../hooks/useAcademies"
 import { formatCpf } from "../lib/cpf"
 
 export interface CarteirinhaData {
@@ -13,7 +14,6 @@ export interface CarteirinhaData {
   cardId: string
 }
 
-const academyName = (id: number) => ACADEMIES.find((a) => a.id === id)?.name ?? "—"
 
 function formatDate(iso?: string): string {
   if (!iso) return "—"
@@ -32,6 +32,8 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
 
 /** Carteirinha digital vertical, com QR Code de validação. */
 export default function Carteirinha({ data }: { data: CarteirinhaData }) {
+  const { academies } = useAcademies()
+  const academyName = academies.find((a) => a.id === data.academyId)?.name ?? "—"
   const verifyUrl = `${window.location.origin}/verificar/${data.cardId}`
 
   return (
@@ -62,7 +64,7 @@ export default function Carteirinha({ data }: { data: CarteirinhaData }) {
       {/* Campos */}
       <div style={{ padding: "16px 22px 0", display: "flex", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Row label="Academia" value={academyName(data.academyId)} />
+          <Row label="Academia" value={academyName} />
           <Row label="Faixa" value={BELT_LABELS[data.belt] ?? "—"} accent />
           <Row label="Validade" value={formatDate(data.validUntil)} />
         </div>

@@ -253,16 +253,16 @@ export default function Painel() {
               <div style={{ color: "#ccc", fontSize: 14, marginBottom: 8 }}>Faixa: <span style={{ color: "#fff" }}>{BELT_LABELS[affiliate.belt] ?? "—"}</span></div>
               {affiliate.validUntil && (
                 <div style={{ color: "#ccc", fontSize: 14, marginBottom: 8 }}>
-                  Mensalidade válida até: <span style={{ color: "#fff" }}>{formatDate(affiliate.validUntil)}</span>
+                  Anuidade válida até: <span style={{ color: "#fff" }}>{formatDate(affiliate.validUntil)}</span>
                 </div>
               )}
               {eff !== "active" && (
                 <div style={{ color: eff === "overdue" ? "#ef4444" : "#F0B90B", fontSize: 13, marginBottom: 14 }}>
-                  {eff === "overdue" ? "Sua mensalidade venceu. Realize o pagamento para reativar." : "Realize o pagamento para ativar sua filiação."}
+                  {eff === "overdue" ? "Sua anuidade venceu. Realize o pagamento para reativar." : "Realize o pagamento para ativar sua filiação."}
                 </div>
               )}
               <a
-                href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(`Olá! Sou ${affiliate.fullName} (CPF ${affiliate.cpf}) e quero realizar o pagamento da mensalidade de R$ ${MEMBERSHIP_FEE},00.`)}`}
+                href={`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(`Olá! Sou ${affiliate.fullName} (CPF ${affiliate.cpf}) e quero realizar o pagamento da anuidade de R$ ${MEMBERSHIP_FEE},00.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#F0B90B", fontSize: 13, fontWeight: 700, textDecoration: "none", marginTop: 6 }}

@@ -404,16 +404,16 @@ export default function Painel() {
                     />
                   </div>
                   <div style={{ textAlign: "center", marginTop: 16 }}>
-                    {/* Link, e não window.print(): o Safari do iPhone ignora o
-                        print disparado no meio da página. A rota dedicada abre
-                        só a carteirinha e cuida da impressão lá (BUG-14). */}
+                    {/* Link para a rota dedicada: impressão no navegador não é
+                        confiável (Safari do iPhone e WebViews ignoram), então lá
+                        a carteirinha vira uma imagem PNG salvável (BUG-14). */}
                     <a
                       href={`/carteirinha/${affiliate.cardId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: "inline-block", background: "none", color: "#F0B90B", fontSize: 12, fontWeight: 700, padding: "10px 22px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #3a3320", cursor: "pointer", textDecoration: "none" }}
                     >
-                      Baixar / imprimir carteirinha (PDF)
+                      Baixar carteirinha
                     </a>
                   </div>
                 </>

@@ -150,6 +150,23 @@ export async function registerAffiliate(input: AffiliateInput) {
 }
 
 /**
+ * Resolve o cardId atual da filiação lendo o documento no servidor.
+ * O `cardId` que a tela tem em mãos pode estar desatualizado: se a filiação
+ * foi carregada antes do admin confirmar o pagamento, o estado local ainda
+ * não conhece a carteirinha que já existe no banco. Sem esta leitura, a foto
+ * é gravada só em `affiliates` e o QR Code mostra a carteirinha sem foto.
+ */
+async function resolveCardId(cpf: string, cardId?: string): Promise<string | undefined> {
+  if (cardId) return cardId
+  try {
+    const snap = await getDoc(doc(db, "affiliates", cleanCpf(cpf)))
+    return snap.exists() ? (snap.data().cardId as string | undefined) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Comprime e envia a foto de perfil para o Cloudinary e salva a photoURL
  * na filiação e no card público (para a carteirinha/validação).
  */
@@ -157,7 +174,8 @@ export async function uploadProfilePhoto(uid: string, cpf: string, file: File, c
   const blob = await compressSquareImage(file)
   const photoURL = await uploadToCloudinary(blob, `profilePhotos/${uid}`)
   await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { photoURL })
-  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { photoURL })
+  const id = await resolveCardId(cpf, cardId)
+  if (id) await updateDoc(doc(db, "publicCards", id), { photoURL })
   return photoURL
 }
 
@@ -185,7 +203,20 @@ export async function confirmPayment(params: {
 }): Promise<{ cardId: string; validUntil: string }> {
   const cpf = cleanCpf(params.cpf)
   const validUntil = nextValidUntil(params.affiliate.validUntil)
-  const cardId = params.affiliate.cardId ?? crypto.randomUUID()
+
+  // A lista do admin pode ter sido carregada antes de o atleta enviar a foto
+  // (ou trocar a faixa/os dados) no painel dele. Relemos a filiação para o
+  // card público nascer com os dados atuais, e não com o que estava na tela.
+  let fresh: Partial<AffiliateCardData> = {}
+  try {
+    const snap = await getDoc(doc(db, "affiliates", cpf))
+    if (snap.exists()) fresh = snap.data() as Partial<AffiliateCardData>
+  } catch {
+    // Sem a leitura, seguimos com os dados da tela: confirmar o pagamento é
+    // mais importante do que ter a foto no card neste instante.
+  }
+
+  const cardId = fresh.cardId ?? params.affiliate.cardId ?? crypto.randomUUID()
 
   await setDoc(doc(db, "affiliates", cpf, "payments", params.month), {
     month: params.month,
@@ -206,12 +237,12 @@ export async function confirmPayment(params: {
   const card: PublicCard = {
     uid: params.affiliate.uid,
     cpf,
-    fullName: params.affiliate.fullName,
-    academyId: params.affiliate.academyId,
-    belt: params.affiliate.belt,
+    fullName: fresh.fullName ?? params.affiliate.fullName,
+    academyId: fresh.academyId ?? params.affiliate.academyId,
+    belt: fresh.belt ?? params.affiliate.belt,
     status: "active",
-    photoURL: params.affiliate.photoURL ?? "",
-    birthDate: params.affiliate.birthDate ?? "",
+    photoURL: fresh.photoURL ?? params.affiliate.photoURL ?? "",
+    birthDate: fresh.birthDate ?? params.affiliate.birthDate ?? "",
     validUntil,
   }
   await setDoc(doc(db, "publicCards", cardId), card)
@@ -327,7 +358,8 @@ export async function updateAffiliateProfile(cpf: string, data: EditableProfile)
 /** Remove a foto de perfil do filiado (e do card público, se houver). */
 export async function removeProfilePhoto(cpf: string, cardId?: string) {
   await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { photoURL: "" })
-  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { photoURL: "" })
+  const id = await resolveCardId(cpf, cardId)
+  if (id) await updateDoc(doc(db, "publicCards", id), { photoURL: "" })
 }
 
 /** Lista todas as filiações (apenas admin, conforme regras). */

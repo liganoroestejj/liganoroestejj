@@ -9,6 +9,7 @@ import Login from "./pages/auth/Login"
 import Cadastro from "./pages/auth/Cadastro"
 import AuthAction from "./pages/auth/AuthAction"
 import Verificar from "./pages/verificar/Verificar"
+import ImprimirCarteirinha from "./pages/carteirinha/ImprimirCarteirinha"
 import Painel from "./pages/painel/Painel"
 import Admin from "./pages/admin/Admin"
 import NotFound from "./pages/NotFound"
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/auth/action" element={<AuthAction />} />
         <Route path="/verificar/:cardId" element={<Verificar />} />
+        <Route path="/carteirinha/:cardId" element={<ImprimirCarteirinha />} />
         <Route
           path="/painel"
           element={

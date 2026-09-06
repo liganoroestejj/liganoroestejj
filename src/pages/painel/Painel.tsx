@@ -9,6 +9,22 @@ import { BELT_LABELS, effectiveStatus, MEMBERSHIP_FEE, STATES, WHATSAPP_PHONE } 
 import { formatCep, formatPhone } from "../../lib/masks"
 import { isValidEmail } from "../../lib/sanitize"
 
+// Os dois botões da foto dividem a linha em partes iguais e quebram juntos no
+// mobile: sem isso cada um ficava com a largura do próprio texto ("Trocar foto"
+// x "Remover foto"), deixando a dupla desalinhada em telas estreitas.
+const botaoFoto: React.CSSProperties = {
+  flex: "1 1 150px",
+  maxWidth: 180,
+  fontSize: 12,
+  padding: "9px 12px",
+  borderRadius: 5,
+  letterSpacing: 1,
+  textTransform: "uppercase",
+  textAlign: "center",
+  whiteSpace: "nowrap",
+  cursor: "pointer",
+}
+
 function formatDate(iso?: string): string {
   if (!iso) return "—"
   const [y, m, d] = iso.split("-")
@@ -202,15 +218,6 @@ export default function Painel() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0A0A0A", padding: "60px 24px" }}>
-      {/* Impressão: mostra apenas a carteirinha (BUG-14) */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #carteirinha-print, #carteirinha-print * { visibility: visible; }
-          #carteirinha-print { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); }
-          .no-print { display: none !important; }
-        }
-      `}</style>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <Link to="/" style={{ color: "#999", fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: 1, display: "inline-block", marginBottom: 24 }}>
           ← Voltar ao site
@@ -292,7 +299,7 @@ export default function Painel() {
                   <button
                     onClick={() => fileRef.current?.click()}
                     disabled={enviandoFoto || removendoFoto}
-                    style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 12, fontWeight: 800, padding: "9px 18px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "none", cursor: "pointer", opacity: enviandoFoto || removendoFoto ? 0.6 : 1 }}
+                    style={{ ...botaoFoto, background: "#F0B90B", color: "#0A0A0A", fontWeight: 800, border: "none", opacity: enviandoFoto || removendoFoto ? 0.6 : 1 }}
                   >
                     {enviandoFoto ? "Enviando..." : affiliate.photoURL ? "Trocar foto" : "Enviar foto"}
                   </button>
@@ -300,7 +307,7 @@ export default function Painel() {
                     <button
                       onClick={handleRemoverFoto}
                       disabled={enviandoFoto || removendoFoto}
-                      style={{ background: "none", color: "#f87171", fontSize: 12, fontWeight: 700, padding: "9px 18px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #533", cursor: "pointer", opacity: enviandoFoto || removendoFoto ? 0.6 : 1 }}
+                      style={{ ...botaoFoto, background: "none", color: "#f87171", fontWeight: 700, border: "1px solid #533", opacity: enviandoFoto || removendoFoto ? 0.6 : 1 }}
                     >
                       {removendoFoto ? "Removendo..." : "Remover foto"}
                     </button>
@@ -382,7 +389,7 @@ export default function Painel() {
             <div style={{ marginBottom: 28 }}>
               {affiliate.status === "active" && affiliate.cardId ? (
                 <>
-                  <div id="carteirinha-print">
+                  <div>
                     <Carteirinha
                       data={{
                         fullName: affiliate.fullName,
@@ -397,13 +404,17 @@ export default function Painel() {
                     />
                   </div>
                   <div style={{ textAlign: "center", marginTop: 16 }}>
-                    <button
-                      onClick={() => window.print()}
-                      className="no-print"
-                      style={{ background: "none", color: "#F0B90B", fontSize: 12, fontWeight: 700, padding: "10px 22px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #3a3320", cursor: "pointer" }}
+                    {/* Link, e não window.print(): o Safari do iPhone ignora o
+                        print disparado no meio da página. A rota dedicada abre
+                        só a carteirinha e cuida da impressão lá (BUG-14). */}
+                    <a
+                      href={`/carteirinha/${affiliate.cardId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: "inline-block", background: "none", color: "#F0B90B", fontSize: 12, fontWeight: 700, padding: "10px 22px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #3a3320", cursor: "pointer", textDecoration: "none" }}
                     >
                       Baixar / imprimir carteirinha (PDF)
-                    </button>
+                    </a>
                   </div>
                 </>
               ) : (

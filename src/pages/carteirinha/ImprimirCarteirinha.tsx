@@ -48,7 +48,7 @@ export default function ImprimirCarteirinha() {
   const [fotoEmbutida, setFotoEmbutida] = useState<string | undefined>()
   const [carregando, setCarregando] = useState(true)
   const [gerando, setGerando] = useState(false)
-  const [imagem, setImagem] = useState("")
+  const [aviso, setAviso] = useState("")
   const [erro, setErro] = useState("")
   const cartaoRef = useRef<HTMLDivElement>(null)
 
@@ -77,10 +77,6 @@ export default function ImprimirCarteirinha() {
       if (!blob) throw new Error("canvas vazio")
 
       const arquivo = new File([blob], nomeArquivo(card.fullName), { type: "image/png" })
-      const url = URL.createObjectURL(blob)
-      // A imagem fica na tela em qualquer caso: é a única saída que funciona
-      // em WebView sem download nem compartilhamento (segurar o dedo e salvar).
-      setImagem(url)
 
       // 1) Compartilhar nativo — no iOS é o que leva a foto para Fotos/Arquivos.
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
@@ -89,18 +85,22 @@ export default function ImprimirCarteirinha() {
           await nav.share({ files: [arquivo], title: "Carteirinha LNJJP" })
           return
         } catch {
-          // Cancelou ou o app recusou: cai no download/imagem na tela.
+          // Cancelou ou o app recusou: cai no download.
         }
       }
 
-      // 2) Download direto — Android e desktop.
+      // 2) Download direto — Android e desktop. O href é data:, e não a URL do
+      //    blob: alguns navegadores repassam o link ao gerenciador de downloads
+      //    do Android, que não enxerga um blob: da página e falha com
+      //    "<Sem título> / Falha no download".
       const a = document.createElement("a")
-      a.href = url
+      a.href = canvas.toDataURL("image/png")
       a.download = arquivo.name
       a.rel = "noopener"
       document.body.appendChild(a)
       a.click()
       a.remove()
+      setAviso("Carteirinha salva. Procure na pasta Downloads ou na galeria do seu aparelho.")
     } catch {
       setErro("Não foi possível gerar a imagem. Recarregue a página e tente de novo.")
     } finally {
@@ -145,31 +145,12 @@ export default function ImprimirCarteirinha() {
               disabled={gerando}
               style={{ width: "100%", background: "#F0B90B", color: "#0A0A0A", fontSize: 12, fontWeight: 800, padding: "12px 22px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "none", cursor: "pointer", opacity: gerando ? 0.6 : 1 }}
             >
-              {gerando ? "Gerando imagem..." : "Salvar carteirinha"}
+              {gerando ? "Gerando..." : "Baixar carteirinha"}
             </button>
 
             {erro && <p style={{ color: "#f87171", fontSize: 12, marginTop: 12 }}>{erro}</p>}
+            {aviso && <p style={{ color: "#4ade80", fontSize: 12, lineHeight: 1.5, marginTop: 12 }}>{aviso}</p>}
 
-            {imagem && (
-              <div style={{ marginTop: 22 }}>
-                <p style={{ color: "#888", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-                  Se o download não começou, <strong style={{ color: "#ccc" }}>segure o dedo sobre a imagem abaixo</strong> e
-                  escolha "Salvar imagem" — ela vai para a galeria do seu celular.
-                </p>
-                <img
-                  src={imagem}
-                  alt="Carteirinha para salvar"
-                  style={{ width: "100%", borderRadius: 12, border: "1px solid #333" }}
-                />
-              </div>
-            )}
-
-            <button
-              onClick={() => window.print()}
-              style={{ width: "100%", marginTop: 14, background: "none", color: "#888", fontSize: 11, fontWeight: 700, padding: "10px 18px", borderRadius: 5, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #2a2a2a", cursor: "pointer" }}
-            >
-              Imprimir em papel
-            </button>
           </div>
         </>
       ) : (

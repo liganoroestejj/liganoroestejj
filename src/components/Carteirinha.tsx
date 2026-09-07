@@ -25,7 +25,9 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ color: "#888", fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ color: accent ? "#F0B90B" : "#fff", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+      {/* lineHeight folgado + padding: sem isso o html2canvas corta a parte de
+          baixo das letras e dos números ao gerar o PNG da carteirinha. */}
+      <div style={{ color: accent ? "#F0B90B" : "#fff", fontSize: 14, fontWeight: 700, lineHeight: 1.45, paddingBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
     </div>
   )
 }
@@ -58,7 +60,7 @@ export default function Carteirinha({ data }: { data: CarteirinhaData }) {
             <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           )}
         </div>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "#fff", letterSpacing: 1, lineHeight: 1.05, marginTop: 14, textAlign: "center" }}>{data.fullName}</div>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "#fff", letterSpacing: 1, lineHeight: 1.2, marginTop: 14, textAlign: "center" }}>{data.fullName}</div>
       </div>
 
       {/* Campos */}

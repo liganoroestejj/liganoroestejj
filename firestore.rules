@@ -25,14 +25,17 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && !request.resource.data.keys().hasAny(['validUntil', 'cardId']);
-      // Admin altera qualquer campo; o dono só pode mudar a foto e os
-      // próprios dados de contato/endereço (nunca CPF, faixa, status, cardId,
-      // validade, etc. — a carteirinha e a validade são emitidas pelo admin).
+      // Admin altera qualquer campo; o dono edita os próprios dados de
+      // cadastro (nome, nascimento, sexo, academia, faixa, tipo), a foto e o
+      // contato/endereço. Ficam de fora: CPF (é o id do doc), uid, status,
+      // validUntil e cardId — pagamento e emissão da carteirinha são do admin,
+      // e liberar esses campos permitiria auto-ativação.
       allow update: if isAdmin()
         || (request.auth != null
             && resource.data.uid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                  'photoURL',
+                 'fullName', 'birthDate', 'gender', 'academyId', 'belt', 'role', 'category',
                  'email', 'instagram', 'phone', 'address',
                  'neighborhood', 'zipCode', 'city', 'state'
                ]))
@@ -71,10 +74,16 @@ service cloud.firestore {
     match /publicCards/{cardId} {
       allow read: if true;
       allow create: if isAdmin();
+      // O dono só espelha no card o que ele já pode editar no próprio
+      // cadastro (foto, nome, faixa, academia, nascimento) — assim a
+      // carteirinha não fica desatualizada. `status` e `validUntil`, que é o
+      // que o QR Code atesta, continuam exclusivos do admin.
       allow update: if isAdmin()
         || (request.auth != null
             && resource.data.uid == request.auth.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 'photoURL', 'fullName', 'belt', 'academyId', 'birthDate'
+               ]));
       allow delete: if isAdmin();
     }
 

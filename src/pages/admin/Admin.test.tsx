@@ -201,9 +201,10 @@ describe("Admin — configurações do cadastro (academias)", () => {
 
     expect(screen.getByText("Configurações do cadastro")).toBeInTheDocument()
     expect(screen.getByText("Academias (2)")).toBeInTheDocument()
-    // "UP BJJ" também aparece na coluna Academia da tabela de filiados.
+    // Os nomes também aparecem na coluna Academia da tabela e no filtro por
+    // academia — por isso a checagem é por ocorrência, não por elemento único.
     expect(screen.getAllByText("UP BJJ").length).toBeGreaterThan(0)
-    expect(screen.getByText("Gracie Barra")).toBeInTheDocument()
+    expect(screen.getAllByText("Gracie Barra").length).toBeGreaterThan(0)
   })
 
   it("não deixa remover quando só existe uma academia", async () => {
@@ -319,7 +320,7 @@ describe("Admin — editar academia", () => {
     fireEvent.click(screen.getByRole("button", { name: /cancelar/i }))
 
     expect(mockRenameAcademy).not.toHaveBeenCalled()
-    expect(screen.getByText("Gracie Barra")).toBeInTheDocument()
+    expect(screen.getAllByText("Gracie Barra").length).toBeGreaterThan(0)
   })
 
   it("recusa nome vazio na edição", async () => {
@@ -444,5 +445,114 @@ describe.each([
     fireEvent.click(screen.getByRole("button", { name: /43 filiados|1 filiados/i }))
     expect(screen.getByText("Atleta Ativo")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /marcar pago/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Filtro por academia — combina com aba, status e busca, e some da paginação.
+// ---------------------------------------------------------------------------
+function filiado(nome: string, academyId: number, extra: Partial<AdminAffiliate> = {}): AdminAffiliate {
+  return {
+    cpf: `${academyId}${nome.length}${nome.charCodeAt(0)}`.padEnd(11, "0"),
+    uid: `u-${nome}`,
+    fullName: nome,
+    academyId,
+    belt: 1,
+    role: 1,
+    status: "pending",
+    ...extra,
+  }
+}
+
+const selectAcademia = () => screen.getByLabelText("Filtrar por academia") as HTMLSelectElement
+
+describe.each([
+  ["desktop", false],
+  ["mobile", true],
+])("Admin — filtro por academia (%s)", (_nome, mobile) => {
+  beforeEach(() => {
+    mockIsMobile = mobile
+    mockAcademies = [{ id: 1, name: "UP BJJ" }, { id: 2, name: "Gracie Barra" }]
+  })
+
+  it("lista todas as academias como opção, começando em Todas", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Bruno", 2)])
+
+    expect(selectAcademia().value).toBe("all")
+    const opcoes = within(selectAcademia()).getAllByRole("option").map((o) => o.textContent)
+    expect(opcoes).toEqual(["Todas as academias", "UP BJJ", "Gracie Barra"])
+  })
+
+  it("mostra só os filiados da academia escolhida", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Bruno", 2), filiado("Carla", 2)])
+
+    fireEvent.change(selectAcademia(), { target: { value: "2" } })
+
+    expect(screen.queryByText("Ana")).not.toBeInTheDocument()
+    expect(screen.getByText("Bruno")).toBeInTheDocument()
+    expect(screen.getByText("Carla")).toBeInTheDocument()
+    expect(screen.getByText(/Mostrando 1 a 2 de 2 filiados/)).toBeInTheDocument()
+  })
+
+  it("volta a mostrar todos ao escolher Todas as academias", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Bruno", 2)])
+
+    fireEvent.change(selectAcademia(), { target: { value: "1" } })
+    expect(screen.queryByText("Bruno")).not.toBeInTheDocument()
+
+    fireEvent.change(selectAcademia(), { target: { value: "all" } })
+    expect(screen.getByText("Ana")).toBeInTheDocument()
+    expect(screen.getByText("Bruno")).toBeInTheDocument()
+  })
+
+  it("combina com a busca por nome", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Bruno", 2), filiado("Ana Paula", 2)])
+
+    fireEvent.change(selectAcademia(), { target: { value: "2" } })
+    fireEvent.change(screen.getByPlaceholderText(/buscar por nome/i), { target: { value: "ana" } })
+
+    expect(screen.getByText("Ana Paula")).toBeInTheDocument()
+    expect(screen.queryByText("Bruno")).not.toBeInTheDocument()
+    expect(screen.queryByText("Ana")).not.toBeInTheDocument()
+  })
+
+  it("combina com o filtro de status", async () => {
+    await renderComFiliados([
+      filiado("Ana", 2, { status: "active", validUntil: "2099-01-01" }),
+      filiado("Bruno", 2),
+      filiado("Carla", 1, { status: "active", validUntil: "2099-01-01" }),
+    ])
+
+    fireEvent.change(selectAcademia(), { target: { value: "2" } })
+    fireEvent.click(screen.getByRole("button", { name: /2 ativos/i }))
+
+    expect(screen.getByText("Ana")).toBeInTheDocument()
+    expect(screen.queryByText("Bruno")).not.toBeInTheDocument()
+    expect(screen.queryByText("Carla")).not.toBeInTheDocument()
+  })
+
+  it("volta para a primeira página ao trocar de academia", async () => {
+    const muitos = Array.from({ length: 12 }, (_, i) => filiado(`Atleta ${String(i + 1).padStart(2, "0")}`, 1))
+    await renderComFiliados([...muitos, filiado("Bruno", 2)])
+
+    fireEvent.click(screen.getByRole("button", { name: "Página 2" }))
+    fireEvent.change(selectAcademia(), { target: { value: "2" } })
+
+    expect(screen.getByText("Bruno")).toBeInTheDocument()
+    expect(screen.getByText(/Mostrando 1 a 1 de 1 filiado/)).toBeInTheDocument()
+  })
+
+  it("oferece Sem academia só quando alguém ficou órfão", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Orfa", 99)])
+
+    fireEvent.change(selectAcademia(), { target: { value: "none" } })
+    expect(screen.getByText("Orfa")).toBeInTheDocument()
+    expect(screen.queryByText("Ana")).not.toBeInTheDocument()
+  })
+
+  it("esconde Sem academia quando todos têm academia válida", async () => {
+    await renderComFiliados([filiado("Ana", 1), filiado("Bruno", 2)])
+
+    expect(within(selectAcademia()).queryByText(/sem academia/i)).not.toBeInTheDocument()
   })
 })

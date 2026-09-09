@@ -5,7 +5,8 @@ import { sendEmailVerification } from "firebase/auth"
 import { db } from "../../lib/firebase"
 import { useAuth } from "../../context/AuthContext"
 import { removeProfilePhoto, updateAffiliateProfile, uploadProfilePhoto, type EditableProfile } from "../../lib/affiliates"
-import { BELT_LABELS, effectiveStatus, MEMBERSHIP_FEE, STATES, WHATSAPP_PHONE } from "../../lib/affiliateOptions"
+import { BELT_LABELS, GENDER_LABELS, ROLE_LABELS, effectiveStatus, MEMBERSHIP_FEE, STATES, WHATSAPP_PHONE } from "../../lib/affiliateOptions"
+import { useAcademies } from "../../hooks/useAcademies"
 import { formatCep, formatPhone } from "../../lib/masks"
 import { isValidEmail } from "../../lib/sanitize"
 
@@ -54,6 +55,8 @@ interface Affiliate {
   status: string
   photoURL?: string
   birthDate?: string
+  gender?: number
+  role?: number
   validUntil?: string
   cardId?: string
   // Dados de contato/endereço (editáveis pelo dono).
@@ -68,12 +71,19 @@ interface Affiliate {
 }
 
 const emptyProfile: EditableProfile = {
+  fullName: "", birthDate: "", gender: 1, academyId: 0, belt: 1, role: 1,
   email: "", instagram: "", phone: "", address: "",
   neighborhood: "", zipCode: "", city: "", state: "RJ",
 }
 
 function profileFromAffiliate(a: Affiliate): EditableProfile {
   return {
+    fullName: a.fullName ?? "",
+    birthDate: a.birthDate ?? "",
+    gender: a.gender ?? 1,
+    academyId: a.academyId,
+    belt: a.belt,
+    role: a.role ?? 1,
     email: a.email ?? "",
     instagram: a.instagram ?? "",
     phone: a.phone ?? "",
@@ -109,6 +119,7 @@ export default function Painel() {
   const [salvando, setSalvando] = useState(false)
   const [erroEdit, setErroEdit] = useState("")
   const [avisoEdit, setAvisoEdit] = useState("")
+  const { academies } = useAcademies()
 
   useEffect(() => {
     if (!user) return
@@ -184,13 +195,26 @@ export default function Painel() {
     setEditando(true)
   }
 
-  const setEdit = (k: keyof EditableProfile, v: string) => setEditForm((f) => ({ ...f, [k]: v }))
+  const setEdit = <K extends keyof EditableProfile>(k: K, v: EditableProfile[K]) =>
+    setEditForm((f) => ({ ...f, [k]: v }))
 
   async function salvarPerfil(e: React.FormEvent) {
     e.preventDefault()
     if (!affiliate) return
     setErroEdit("")
     setAvisoEdit("")
+    if (!editForm.fullName.trim()) {
+      setErroEdit("Informe o nome completo.")
+      return
+    }
+    if (!editForm.birthDate) {
+      setErroEdit("Informe a data de nascimento.")
+      return
+    }
+    if (!academies.some((a) => a.id === editForm.academyId)) {
+      setErroEdit("Escolha uma academia.")
+      return
+    }
     if (!isValidEmail(editForm.email)) {
       setErroEdit("E-mail inválido.")
       return
@@ -201,13 +225,24 @@ export default function Painel() {
     }
     setSalvando(true)
     try {
-      const data: EditableProfile = { ...editForm, zipCode: editForm.zipCode.replace(/\D/g, "") }
-      await updateAffiliateProfile(affiliate.cpf, data)
+      const data: EditableProfile = {
+        ...editForm,
+        fullName: editForm.fullName.trim(),
+        zipCode: editForm.zipCode.replace(/\D/g, ""),
+      }
+      await updateAffiliateProfile(affiliate.cpf, data, affiliate.cardId)
       setAffiliate({ ...affiliate, ...data })
       setAvisoEdit("Dados atualizados com sucesso.")
       setEditando(false)
-    } catch {
-      setErroEdit("Não foi possível salvar. Tente novamente.")
+    } catch (err) {
+      // Sem distinguir o motivo, "tente novamente" manda o usuário repetir uma
+      // ação que nunca vai funcionar. Permissão negada é falha de configuração
+      // (regras do Firestore desatualizadas), não algo que ele resolva.
+      const codigo = (err as { code?: string })?.code ?? ""
+      console.error("Falha ao salvar o perfil:", err)
+      setErroEdit(codigo === "permission-denied"
+        ? "Sem permissão para salvar estes dados. Avise a organização da liga (as regras do banco precisam ser atualizadas)."
+        : "Não foi possível salvar. Tente novamente.")
     } finally {
       setSalvando(false)
     }
@@ -334,6 +369,12 @@ export default function Painel() {
 
               {!editando ? (
                 <div style={{ color: "#999", fontSize: 13, lineHeight: 1.9, marginTop: 12 }}>
+                  <div>Nome: <span style={{ color: "#ddd" }}>{affiliate.fullName}</span></div>
+                  <div>Nascimento: <span style={{ color: "#ddd" }}>{formatDate(affiliate.birthDate)}</span></div>
+                  <div>Sexo: <span style={{ color: "#ddd" }}>{GENDER_LABELS[affiliate.gender ?? 0] ?? "—"}</span></div>
+                  <div>Academia: <span style={{ color: "#ddd" }}>{academies.find((a) => a.id === affiliate.academyId)?.name ?? "—"}</span></div>
+                  <div>Faixa: <span style={{ color: "#ddd" }}>{BELT_LABELS[affiliate.belt] ?? "—"}</span></div>
+                  <div>Tipo: <span style={{ color: "#ddd" }}>{ROLE_LABELS[affiliate.role ?? 0] ?? "—"}</span></div>
                   <div>E-mail: <span style={{ color: "#ddd" }}>{affiliate.email || "—"}</span></div>
                   <div>Telefone: <span style={{ color: "#ddd" }}>{affiliate.phone ? formatPhone(affiliate.phone) : "—"}</span></div>
                   <div>Endereço: <span style={{ color: "#ddd" }}>{affiliate.address || "—"}{affiliate.neighborhood ? `, ${affiliate.neighborhood}` : ""}</span></div>
@@ -344,29 +385,66 @@ export default function Painel() {
                 <form onSubmit={salvarPerfil}>
                   {erroEdit && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{erroEdit}</div>}
 
+                  <label style={editLabel}>Nome completo</label>
+                  <input aria-label="Nome completo" style={editInput} value={editForm.fullName} onChange={(e) => setEdit("fullName", e.target.value)} />
+
+                  <label style={editLabel}>Data de nascimento</label>
+                  <input aria-label="Data de nascimento" style={editInput} type="date" value={editForm.birthDate} onChange={(e) => setEdit("birthDate", e.target.value)} />
+
+                  <label style={editLabel}>Sexo</label>
+                  <select aria-label="Sexo" style={editInput} value={editForm.gender} onChange={(e) => setEdit("gender", Number(e.target.value))}>
+                    {Object.entries(GENDER_LABELS).map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+
+                  <label style={editLabel}>Academia</label>
+                  <select aria-label="Academia" style={editInput} value={editForm.academyId} onChange={(e) => setEdit("academyId", Number(e.target.value))}>
+                    {/* A academia atual pode ter saído das opções: sem esta
+                        entrada o select cairia sozinho na primeira da lista. */}
+                    {!academies.some((a) => a.id === editForm.academyId) && (
+                      <option value={editForm.academyId}>Selecione a academia</option>
+                    )}
+                    {academies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+
+                  <label style={editLabel}>Faixa</label>
+                  <select aria-label="Faixa" style={editInput} value={editForm.belt} onChange={(e) => setEdit("belt", Number(e.target.value))}>
+                    {Object.entries(BELT_LABELS).map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+
+                  <label style={editLabel}>Tipo</label>
+                  <select aria-label="Tipo" style={editInput} value={editForm.role} onChange={(e) => setEdit("role", Number(e.target.value))}>
+                    {Object.entries(ROLE_LABELS).map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+
                   <label style={editLabel}>E-mail</label>
-                  <input style={editInput} type="email" value={editForm.email} onChange={(e) => setEdit("email", e.target.value)} />
+                  <input aria-label="E-mail" style={editInput} type="email" value={editForm.email} onChange={(e) => setEdit("email", e.target.value)} />
 
                   <label style={editLabel}>Instagram</label>
-                  <input style={editInput} value={editForm.instagram} onChange={(e) => setEdit("instagram", e.target.value)} placeholder="@seuperfil" />
+                  <input aria-label="Instagram" style={editInput} value={editForm.instagram} onChange={(e) => setEdit("instagram", e.target.value)} placeholder="@seuperfil" />
 
                   <label style={editLabel}>Telefone</label>
-                  <input style={editInput} value={formatPhone(editForm.phone)} onChange={(e) => setEdit("phone", e.target.value.replace(/\D/g, "").slice(0, 11))} inputMode="numeric" placeholder="(22) 99999-8888" />
+                  <input aria-label="Telefone" style={editInput} value={formatPhone(editForm.phone)} onChange={(e) => setEdit("phone", e.target.value.replace(/\D/g, "").slice(0, 11))} inputMode="numeric" placeholder="(22) 99999-8888" />
 
                   <label style={editLabel}>Endereço</label>
-                  <input style={editInput} value={editForm.address} onChange={(e) => setEdit("address", e.target.value)} />
+                  <input aria-label="Endereço" style={editInput} value={editForm.address} onChange={(e) => setEdit("address", e.target.value)} />
 
                   <label style={editLabel}>Bairro</label>
-                  <input style={editInput} value={editForm.neighborhood} onChange={(e) => setEdit("neighborhood", e.target.value)} />
+                  <input aria-label="Bairro" style={editInput} value={editForm.neighborhood} onChange={(e) => setEdit("neighborhood", e.target.value)} />
 
                   <label style={editLabel}>CEP</label>
-                  <input style={editInput} value={formatCep(editForm.zipCode)} onChange={(e) => setEdit("zipCode", e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" placeholder="00000-000" />
+                  <input aria-label="CEP" style={editInput} value={formatCep(editForm.zipCode)} onChange={(e) => setEdit("zipCode", e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" placeholder="00000-000" />
 
                   <label style={editLabel}>Cidade</label>
-                  <input style={editInput} value={editForm.city} onChange={(e) => setEdit("city", e.target.value)} />
+                  <input aria-label="Cidade" style={editInput} value={editForm.city} onChange={(e) => setEdit("city", e.target.value)} />
 
                   <label style={editLabel}>Estado (UF)</label>
-                  <select style={editInput} value={editForm.state} onChange={(e) => setEdit("state", e.target.value)}>
+                  <select aria-label="Estado (UF)" style={editInput} value={editForm.state} onChange={(e) => setEdit("state", e.target.value)}>
                     {STATES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                   </select>
 

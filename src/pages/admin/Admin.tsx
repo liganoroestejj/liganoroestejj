@@ -52,6 +52,7 @@ const td: React.CSSProperties = { padding: "16px 16px", borderTop: "1px solid #1
 type StatusFiltro = "all" | "active" | "pending" | "inactive"
 type AbaFiltro = "all" | number // number = role id
 type SortKey = "validUntil" | "lastPaymentAt" | null
+type AcademiaFiltro = "all" | "none" | number
 
 // Pluraliza rótulos em português (NEW-03): "Professor" -> "Professores",
 // "Atleta" -> "Atletas". Palavras terminadas em "r" recebem "es".
@@ -219,6 +220,9 @@ export default function Admin() {
   const [busca, setBusca] = useState("")
   const [filtro, setFiltro] = useState<StatusFiltro>("all")
   const [aba, setAba] = useState<AbaFiltro>("all")
+  // Filtro por academia: "all", o id da academia, ou "none" para quem ficou
+  // sem academia (a academia dele foi removida das opções de cadastro).
+  const [academiaFiltro, setAcademiaFiltro] = useState<AcademiaFiltro>("all")
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 
@@ -403,9 +407,17 @@ export default function Admin() {
   const inativos = rows.filter((r) => effectiveStatus(r.status, r.validUntil) === "inactive").length
   const pendentes = rows.length - ativos - inativos
 
+  // Filiados órfãos: a academia deles foi removida das opções de cadastro.
+  const semAcademia = rows.filter((r) => !academies.some((a) => a.id === r.academyId)).length
+
   const visiveis = useMemo(() => {
     let list = rows
     if (aba !== "all") list = list.filter((r) => r.role === aba)
+    if (academiaFiltro === "none") {
+      list = list.filter((r) => !academies.some((a) => a.id === r.academyId))
+    } else if (academiaFiltro !== "all") {
+      list = list.filter((r) => r.academyId === academiaFiltro)
+    }
     // BUG-07: removidos ficam ocultos por padrão; só aparecem no filtro "Removidos".
     if (filtro === "inactive") {
       list = list.filter((r) => effectiveStatus(r.status, r.validUntil) === "inactive")
@@ -438,11 +450,11 @@ export default function Admin() {
       })
     }
     return list
-  }, [rows, aba, filtro, busca, sortKey, sortDir, academyName])
+  }, [rows, aba, academiaFiltro, academies, filtro, busca, sortKey, sortDir, academyName])
 
   // Mudou filtro, busca, ordenação ou o tamanho da página: volta para a 1ª.
   // Sem isso o admin filtra e cai numa página vazia.
-  useEffect(() => { setPagina(1) }, [aba, filtro, busca, sortKey, sortDir, porPagina])
+  useEffect(() => { setPagina(1) }, [aba, academiaFiltro, filtro, busca, sortKey, sortDir, porPagina])
 
   const totalPaginas = Math.max(1, Math.ceil(visiveis.length / porPagina))
   // Blinda contra página fora do intervalo (ex.: remover o último da lista).
@@ -569,12 +581,42 @@ export default function Admin() {
               </button>
             ))}
           </div>
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome, CPF ou academia..."
-            style={{ background: "#111", border: "1px solid #2a2a2a", color: "#eee", fontSize: 13, padding: "12px 14px", borderRadius: 6, outline: "none", ...(isMobile ? { width: "100%" } : { minWidth: 260, flex: "1 1 260px", maxWidth: 360 }) }}
-          />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", ...(isMobile ? { width: "100%" } : { flex: "1 1 420px", justifyContent: "flex-end" }) }}>
+            <select
+              value={String(academiaFiltro)}
+              onChange={(e) => {
+                const v = e.target.value
+                setAcademiaFiltro(v === "all" || v === "none" ? v : Number(v))
+              }}
+              aria-label="Filtrar por academia"
+              style={{
+                // Seta própria: a nativa cola na borda direita. `appearance:
+                // none` some com ela e a redesenhamos com folga de 14px.
+                appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
+                backgroundColor: "#111",
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 14px center",
+                border: "1px solid #2a2a2a", color: academiaFiltro === "all" ? "#999" : "#F0B90B",
+                fontSize: 13, padding: "12px 38px 12px 14px", borderRadius: 6, outline: "none", cursor: "pointer",
+                ...(isMobile ? { width: "100%" } : { minWidth: 190, maxWidth: 240 }),
+              }}
+            >
+              <option value="all">Todas as academias</option>
+              {academies.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+              {/* Só aparece se houver alguém apontando para uma academia que
+                  saiu das opções de cadastro — senão o filtro traria nada. */}
+              {semAcademia > 0 && <option value="none">Sem academia ({semAcademia})</option>}
+            </select>
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, CPF ou academia..."
+              style={{ background: "#111", border: "1px solid #2a2a2a", color: "#eee", fontSize: 13, padding: "12px 14px", borderRadius: 6, outline: "none", ...(isMobile ? { width: "100%" } : { minWidth: 240, flex: "1 1 240px", maxWidth: 360 }) }}
+            />
+          </div>
         </div>
 
         {erro && <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", color: "#f87171", fontSize: 13, padding: "10px 14px", borderRadius: 6, marginBottom: 18 }}>{erro}</div>}

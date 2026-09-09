@@ -380,6 +380,14 @@ export async function adminReactivate(cpf: string, cardId?: string) {
 // Campos que o próprio filiado pode editar no perfil (dados de contato/endereço).
 // CPF, faixa, categoria, status e datas ficam fora — só o admin altera.
 export interface EditableProfile {
+  // Dados do cadastro.
+  fullName: string
+  birthDate: string // yyyy-mm-dd
+  gender: number
+  academyId: number
+  belt: number
+  role: number
+  // Contato e endereço.
   email: string
   instagram: string
   phone: string
@@ -390,9 +398,29 @@ export interface EditableProfile {
   state: string
 }
 
-/** Atualiza os dados de contato/endereço do próprio filiado. */
-export async function updateAffiliateProfile(cpf: string, data: EditableProfile) {
-  await updateDoc(doc(db, "affiliates", cleanCpf(cpf)), { ...data })
+/**
+ * Atualiza os dados do próprio filiado (todos os campos do cadastro).
+ * Fora daqui ficam apenas CPF (é o id do documento), status, validade e
+ * carteirinha — pagamento e emissão são do admin.
+ *
+ * A categoria é recalculada da data de nascimento (nunca é digitada), e o
+ * card público é sincronizado: nome, faixa, academia e nascimento aparecem
+ * na carteirinha e na validação por QR Code.
+ */
+export async function updateAffiliateProfile(cpf: string, data: EditableProfile, cardId?: string) {
+  const id = cleanCpf(cpf)
+  const category = categoryFromBirthDate(data.birthDate)
+  await updateDoc(doc(db, "affiliates", id), { ...data, category: category.id })
+
+  const card = await resolveCardId(id, cardId)
+  if (card) {
+    await updateDoc(doc(db, "publicCards", card), {
+      fullName: data.fullName,
+      belt: data.belt,
+      academyId: data.academyId,
+      birthDate: data.birthDate,
+    })
+  }
 }
 
 /** Remove a foto de perfil do filiado (e do card público, se houver). */

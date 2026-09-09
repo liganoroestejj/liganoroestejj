@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
-import { adminRevertPayment, adminSoftDelete, confirmPayment, listAffiliates, type AdminAffiliate } from "../../lib/affiliates"
+import { adminReactivate, adminRevertPayment, adminSoftDelete, confirmPayment, listAffiliates, type AdminAffiliate } from "../../lib/affiliates"
 import { BELT_LABELS, effectiveStatus, ROLE_LABELS } from "../../lib/affiliateOptions"
 import { addAcademy, removeAcademy, renameAcademy, type Academy } from "../../lib/academies"
 import { useAcademies } from "../../hooks/useAcademies"
@@ -188,6 +188,8 @@ export default function Admin() {
   const [alvoPagar, setAlvoPagar] = useState<AdminAffiliate | null>(null)
   const [alvoRemover, setAlvoRemover] = useState<AdminAffiliate | null>(null)
   const [removendo, setRemovendo] = useState<string | null>(null)
+  const [alvoAtivar, setAlvoAtivar] = useState<AdminAffiliate | null>(null)
+  const [ativando, setAtivando] = useState<string | null>(null)
   const [alvoRemoverPagamento, setAlvoRemoverPagamento] = useState<AdminAffiliate | null>(null)
   const [removendoPagamento, setRemovendoPagamento] = useState<string | null>(null)
   const [menuAberto, setMenuAberto] = useState<{ cpf: string; top: number; right: number } | null>(null)
@@ -275,12 +277,31 @@ export default function Admin() {
     setAlvoRemover(null)
     setRemovendo(a.cpf)
     try {
-      await adminSoftDelete(a.cpf, a.cardId)
-      setRows((rs) => rs.map((r) => r.cpf === a.cpf ? { ...r, status: "inactive" } : r))
+      await adminSoftDelete(a.cpf, a.cardId, monthOfTs(a.lastPaymentAt))
+      setRows((rs) => rs.map((r) => r.cpf === a.cpf
+        ? { ...r, status: "inactive", validUntil: undefined, lastPaymentAt: null }
+        : r))
     } catch {
       setErro(`Falha ao remover ${a.fullName}.`)
     } finally {
       setRemovendo(null)
+    }
+  }
+
+  async function ativarAtleta(a: AdminAffiliate) {
+    setAlvoAtivar(null)
+    setAtivando(a.cpf)
+    try {
+      await adminReactivate(a.cpf, a.cardId)
+      // Volta como pendente: ativar devolve o atleta à lista, quem libera a
+      // carteirinha é o "Marcar pago".
+      setRows((rs) => rs.map((r) => r.cpf === a.cpf
+        ? { ...r, status: "pending", validUntil: undefined, lastPaymentAt: null }
+        : r))
+    } catch {
+      setErro(`Falha ao ativar ${a.fullName}.`)
+    } finally {
+      setAtivando(null)
     }
   }
 
@@ -436,7 +457,23 @@ export default function Admin() {
   // Botões de ação de uma linha/card (mesmo comportamento em desktop e mobile).
   const acoes = (a: AdminAffiliate, largura?: boolean): React.ReactNode => {
     const eff = effectiveStatus(a.status, a.validUntil)
-    if (eff === "inactive") return <span style={{ color: "#666", fontSize: 11, fontStyle: "italic" }}>Removido</span>
+    // Removido não some: fica na lista "Removidos" com os dados preservados e
+    // sem carteirinha. "Ativar atleta" o devolve à lista normal (como
+    // pendente); daí em diante ele volta a ter as ações de sempre.
+    if (eff === "inactive") {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: largura ? 1 : undefined }}>
+          <button
+            onClick={() => setAlvoAtivar(a)}
+            disabled={ativando === a.cpf}
+            title={`Devolver ${a.fullName} à lista de filiados`}
+            style={{ flex: largura ? 1 : undefined, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontSize: 11, fontWeight: 800, padding: "10px 14px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase", border: "1px solid rgba(34,197,94,0.4)", cursor: "pointer", opacity: ativando === a.cpf ? 0.6 : 1 }}
+          >
+            {ativando === a.cpf ? "..." : "Ativar atleta"}
+          </button>
+        </div>
+      )
+    }
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: largura ? 1 : undefined }}>
         {eff === "active" ? (
@@ -903,6 +940,41 @@ export default function Admin() {
         )
       })()}
 
+      {/* Modal de ativação (volta da lista de removidos) */}
+      {alvoAtivar && (
+        <div
+          onClick={() => setAlvoAtivar(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 400, background: "#141414", border: "1px solid #2a2a2a", borderLeft: "4px solid #22c55e", borderRadius: 10, padding: "28px 24px" }}
+          >
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#fff", letterSpacing: 1, margin: "0 0 8px" }}>
+              Ativar atleta
+            </h2>
+            <p style={{ color: "#aaa", fontSize: 14, lineHeight: 1.5, margin: "0 0 22px" }}>
+              Devolver <strong style={{ color: "#fff" }}>{alvoAtivar.fullName}</strong> para a lista de filiados?
+              <br />Ele volta como <strong style={{ color: "#F0B90B" }}>pendente</strong>, com todos os dados de antes. A carteirinha só é liberada quando você marcar o pagamento como pago.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => ativarAtleta(alvoAtivar)}
+                style={{ flex: 1, minWidth: 120, background: "#22c55e", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "13px", borderRadius: 6, letterSpacing: 1, textTransform: "uppercase", border: "none", cursor: "pointer" }}
+              >
+                Ativar
+              </button>
+              <button
+                onClick={() => setAlvoAtivar(null)}
+                style={{ flex: 1, minWidth: 120, background: "none", color: "#999", fontSize: 13, fontWeight: 700, padding: "13px", borderRadius: 6, letterSpacing: 1, textTransform: "uppercase", border: "1px solid #444", cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de remoção de pagamento */}
       {alvoRemoverPagamento && (
         <div
@@ -951,8 +1023,8 @@ export default function Admin() {
               Remover atleta
             </h2>
             <p style={{ color: "#aaa", fontSize: 14, lineHeight: 1.5, margin: "0 0 22px" }}>
-              Remover <strong style={{ color: "#fff" }}>{alvoRemover.fullName}</strong> da lista de filiados?
-              <br />O registro é <strong style={{ color: "#fff" }}>mantido</strong> (histórico preservado) e apenas marcado como inativo. A carteirinha será invalidada e o CPF ficará <strong style={{ color: "#fff" }}>liberado</strong> para uma nova filiação.
+              Mover <strong style={{ color: "#fff" }}>{alvoRemover.fullName}</strong> para a lista de <strong style={{ color: "#fff" }}>removidos</strong>?
+              <br /><strong style={{ color: "#fff" }}>Nada é apagado</strong>: cadastro, foto, carteirinha e histórico continuam no sistema. Só o <strong style={{ color: "#fff" }}>pagamento é resetado</strong> — a validade cai e a carteirinha deixa de ser liberada. Para trazê-lo de volta, use <strong style={{ color: "#22c55e" }}>Ativar atleta</strong> na lista de removidos.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button

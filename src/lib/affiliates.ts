@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth"
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import { collection, deleteField, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { cleanCpf } from "./cpf"
 import { compressSquareImage } from "./image"
@@ -321,20 +321,60 @@ export async function adminSetValidUntil(cpf: string, validUntil: string, cardId
 /**
  * Remoção lógica (soft delete) de um filiado — ação do admin.
  * Preserva o registro (e o histórico de competições), apenas marca como
- * inativo. A carteirinha pública é invalidada.
+ * inativo: o filiado sai da lista principal e passa a aparecer no filtro
+ * "Removidos", com todos os dados intactos.
+ *
+ * O pagamento também é revogado (validade, último pagamento e a anuidade do
+ * mês voltam ao estado pendente): é isso que trava a carteirinha, já que ela
+ * só é liberada com a filiação ativa. Para voltar, o admin marca como pago —
+ * `confirmPayment` reativa e reemite a carteirinha com o mesmo `cardId`.
+ *
+ * @param month anuidade a devolver para pendente (yyyy-mm). Sem ela, apenas o
+ *              status e a validade são revogados.
  */
-export async function adminSoftDelete(cpf: string, cardId?: string) {
+export async function adminSoftDelete(cpf: string, cardId?: string, month?: string) {
   const id = cleanCpf(cpf)
   await updateDoc(doc(db, "affiliates", id), {
     status: "inactive",
     inactivatedAt: serverTimestamp(),
+    validUntil: deleteField(),
+    lastPaymentAt: deleteField(),
   })
-  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { status: "inactive" })
-  // Libera o CPF: o índice `cpfRegistry` é o que bloqueia a Etapa 1 do
-  // cadastro. Sem apagá-lo, o atleta removido nunca conseguiria se filiar de
-  // novo. O registro em `affiliates` continua lá (histórico) e é sobrescrito
-  // se houver um novo cadastro com o mesmo CPF (ver firestore.rules).
-  await deleteDoc(doc(db, "cpfRegistry", id))
+
+  if (month) {
+    // merge: preserva `amount`, `method` e `createdAt` — a anuidade volta a ser
+    // uma cobrança pendente, como antes da confirmação.
+    await setDoc(doc(db, "affiliates", id, "payments", month), {
+      month,
+      status: "pending",
+      paidAt: deleteField(),
+      confirmedBy: deleteField(),
+    }, { merge: true })
+  }
+
+  // O card é preservado (mesmo cardId) só que invalidado: quem ler o QR já
+  // impresso vê a situação real em vez de "carteirinha não encontrada".
+  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { status: "inactive", validUntil: "" })
+  // O índice `cpfRegistry` NÃO é apagado: remover é só resetar o pagamento,
+  // nada sai de nenhuma coleção. O CPF segue registrado — a filiação existe,
+  // apenas está inativa até o admin marcar o pagamento de novo.
+}
+
+/**
+ * Devolve um filiado removido para a lista normal (ação do admin).
+ * Ele volta como PENDENTE — ativar não é o mesmo que pagar: a carteirinha só
+ * é liberada depois, quando o admin marcar o pagamento como pago. Nada é
+ * criado nem apagado aqui; só o status volta ao que era antes da remoção.
+ */
+export async function adminReactivate(cpf: string, cardId?: string) {
+  const id = cleanCpf(cpf)
+  await updateDoc(doc(db, "affiliates", id), {
+    status: "pending",
+    reactivatedAt: serverTimestamp(),
+  })
+  // O card volta a "pendente": quem ler o QR vê a pendência de pagamento, e
+  // não uma filiação cancelada.
+  if (cardId) await updateDoc(doc(db, "publicCards", cardId), { status: "pending", validUntil: "" })
 }
 
 // Campos que o próprio filiado pode editar no perfil (dados de contato/endereço).

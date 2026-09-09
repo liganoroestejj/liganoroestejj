@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import Admin from "./Admin"
-import type { AdminAffiliate } from "../../lib/affiliates"
+import { adminReactivate, adminSoftDelete, confirmPayment, type AdminAffiliate } from "../../lib/affiliates"
 
 jest.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: { uid: "admin-1" }, isAdmin: true, logout: jest.fn() }),
@@ -13,6 +13,7 @@ jest.mock("../../lib/affiliates", () => ({
   listAffiliates: () => mockListAffiliates(),
   confirmPayment: jest.fn(),
   adminSoftDelete: jest.fn(),
+  adminReactivate: jest.fn(),
   adminRevertPayment: jest.fn(),
 }))
 
@@ -355,5 +356,93 @@ describe("Admin — editar academia", () => {
     fireEvent.click(screen.getByRole("button", { name: /salvar/i }))
 
     await waitFor(() => expect(mockRenameAcademy).toHaveBeenCalledWith(1, "UP BJJ"))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Remoção = mover para a lista "Removidos" (nada é apagado).
+// O pagamento é revogado junto, então a carteirinha só volta a ser liberada
+// quando o admin marcar como pago de novo.
+// ---------------------------------------------------------------------------
+const ATIVO: AdminAffiliate = {
+  cpf: "10000000000",
+  uid: "u0",
+  fullName: "Atleta Ativo",
+  academyId: 1,
+  belt: 1,
+  role: 1,
+  status: "active",
+  cardId: "card-1",
+  validUntil: "2099-01-01",
+  lastPaymentAt: { seconds: Date.parse("2026-03-10T12:00:00Z") / 1000 },
+}
+
+async function renderComFiliados(lista: AdminAffiliate[]) {
+  mockListAffiliates.mockResolvedValue(lista)
+  const utils = render(<MemoryRouter><Admin /></MemoryRouter>)
+  await waitFor(() => expect(screen.getByText(lista[0].fullName)).toBeInTheDocument())
+  return utils
+}
+
+/** Abre o menu ⋮ da linha e clica em "Remover atleta", confirmando no modal. */
+async function removerPrimeiro() {
+  fireEvent.click(screen.getAllByRole("button", { name: "Ações" })[0])
+  fireEvent.click(screen.getByRole("button", { name: /remover atleta/i }))
+  const modal = screen.getByText("Remover atleta").parentElement as HTMLElement
+  await act(async () => {
+    fireEvent.click(within(modal).getByRole("button", { name: /^remover$/i }))
+  })
+}
+
+describe.each([
+  ["desktop", false],
+  ["mobile", true],
+])("Admin — remover atleta (%s)", (_nome, mobile) => {
+  beforeEach(() => { mockIsMobile = mobile })
+
+  it("faz soft delete revogando a anuidade do último pagamento", async () => {
+    ;(adminSoftDelete as jest.Mock).mockResolvedValue(undefined)
+    await renderComFiliados([ATIVO])
+
+    await removerPrimeiro()
+
+    await waitFor(() => expect(adminSoftDelete).toHaveBeenCalledWith("10000000000", "card-1", "2026-03"))
+  })
+
+  it("tira o atleta da lista padrão e o mostra no filtro Removidos", async () => {
+    ;(adminSoftDelete as jest.Mock).mockResolvedValue(undefined)
+    await renderComFiliados([ATIVO])
+
+    await removerPrimeiro()
+
+    await waitFor(() => expect(screen.queryByText("Atleta Ativo")).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /1 removidos/i }))
+    expect(screen.getByText("Atleta Ativo")).toBeInTheDocument()
+  })
+
+  it("oferece Ativar atleta ao removido — e ele volta pendente, sem carteirinha", async () => {
+    ;(adminSoftDelete as jest.Mock).mockResolvedValue(undefined)
+    ;(adminReactivate as jest.Mock).mockResolvedValue(undefined)
+    await renderComFiliados([ATIVO])
+
+    await removerPrimeiro()
+    await waitFor(() => expect(screen.queryByText("Atleta Ativo")).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /1 removidos/i }))
+
+    // Na lista de removidos não existe atalho para marcar pago.
+    expect(screen.queryByRole("button", { name: /marcar pago/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /ativar atleta/i }))
+    const modal = screen.getByRole("heading", { name: "Ativar atleta" }).parentElement as HTMLElement
+    await act(async () => {
+      fireEvent.click(within(modal).getByRole("button", { name: /^ativar$/i }))
+    })
+
+    await waitFor(() => expect(adminReactivate).toHaveBeenCalledWith("10000000000", "card-1"))
+    // Voltou para a lista normal como pendente — aí sim pode marcar pago.
+    expect(screen.getByRole("button", { name: /1 pendentes/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /43 filiados|1 filiados/i }))
+    expect(screen.getByText("Atleta Ativo")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /marcar pago/i })).toBeInTheDocument()
   })
 })

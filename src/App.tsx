@@ -5,6 +5,7 @@ import Ranking from "./pages/Ranking"
 import Academias from "./pages/Academias"
 import Atletas from "./pages/Atletas"
 import Fotos from "./pages/Fotos"
+import Evento from "./pages/Evento"
 import Login from "./pages/auth/Login"
 import Cadastro from "./pages/auth/Cadastro"
 import AuthAction from "./pages/auth/AuthAction"
@@ -14,10 +15,12 @@ import Painel from "./pages/painel/Painel"
 import Admin from "./pages/admin/Admin"
 import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/auth/ProtectedRoute"
+import ScrollToTop from "./components/ScrollToTop"
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/calendario" element={<Calendario />} />
@@ -25,6 +28,7 @@ export default function App() {
         <Route path="/academias" element={<Academias />} />
         <Route path="/atletas" element={<Atletas />} />
         <Route path="/fotos" element={<Fotos />} />
+        <Route path="/evento/:id" element={<Evento />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/auth/action" element={<AuthAction />} />

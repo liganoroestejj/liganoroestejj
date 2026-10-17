@@ -7,13 +7,10 @@ import { addAcademy, removeAcademy, renameAcademy, type Academy } from "../../li
 import { useAcademies } from "../../hooks/useAcademies"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 import { formatCpf } from "../../lib/cpf"
-
-const STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  pending: { text: "Pendente", color: "#F0B90B", bg: "rgba(240,185,11,0.12)" },
-  active: { text: "Ativo", color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
-  overdue: { text: "Em atraso", color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
-  inactive: { text: "Removido", color: "#888", bg: "rgba(136,136,136,0.12)" },
-}
+import { formatDate, formatTs, Paginacao, STATUS, td, th } from "./adminShared"
+import InscricoesPadua from "./InscricoesPadua"
+import { getEventById } from "../../data/events"
+import { PADUA_EVENT_ID } from "../../lib/registrations"
 
 function currentMonth(): string {
   const n = new Date()
@@ -34,20 +31,6 @@ function monthLabel(ym: string): string {
   const [y, m] = ym.split("-")
   return `${MESES[Number(m) - 1]}/${y}`
 }
-
-function formatDate(iso?: string): string {
-  if (!iso) return "—"
-  const [y, m, d] = iso.split("-")
-  return d ? `${d}/${m}/${y}` : iso
-}
-
-function formatTs(ts?: { seconds: number } | null): string {
-  if (!ts) return "—"
-  return new Date(ts.seconds * 1000).toLocaleDateString("pt-BR")
-}
-
-const th: React.CSSProperties = { textAlign: "left", color: "#666", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "14px 16px", background: "#141414", borderBottom: "1px solid #242424", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
-const td: React.CSSProperties = { padding: "16px 16px", borderTop: "1px solid #1c1c1c", fontSize: 13, color: "#ddd", whiteSpace: "nowrap", verticalAlign: "middle", overflow: "hidden", textOverflow: "ellipsis" }
 
 type StatusFiltro = "all" | "active" | "pending" | "inactive"
 type AbaFiltro = "all" | number // number = role id
@@ -70,112 +53,6 @@ const ABAS: { key: AbaFiltro; label: string }[] = [
 const normalizarNome = (t: string) =>
   t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 
-const POR_PAGINA_OPCOES = [10, 15, 20, 25, 30]
-
-/**
- * Páginas mostradas na barra. Até 7 cabem todas; acima disso vira uma janela
- * em volta da atual, com reticências, para a barra não crescer sem limite.
- */
-function paginasVisiveis(atual: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  if (atual <= 4) return [1, 2, 3, 4, 5, "...", total]
-  if (atual >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total]
-  return [1, "...", atual - 1, atual, atual + 1, "...", total]
-}
-
-/** Barra de paginação — mesmo componente no desktop e no mobile. */
-function Paginacao({ total, pagina, porPagina, isMobile, onPagina, onPorPagina }: {
-  total: number
-  pagina: number
-  porPagina: number
-  isMobile: boolean
-  onPagina: (p: number) => void
-  onPorPagina: (n: number) => void
-}) {
-  const totalPaginas = Math.max(1, Math.ceil(total / porPagina))
-  const inicio = total === 0 ? 0 : (pagina - 1) * porPagina + 1
-  const fim = Math.min(pagina * porPagina, total)
-  // Nos extremos o botão fica sem ação: não navega e não responde ao clique.
-  const semAnterior = pagina <= 1
-  const semProxima = pagina >= totalPaginas
-
-  const setaStyle = (inativo: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 4,
-    background: "none", border: "none", borderRadius: 5,
-    color: inativo ? "#3d3d3d" : "#ccc",
-    fontSize: 12, fontWeight: 700, padding: "8px 10px",
-    cursor: inativo ? "default" : "pointer",
-  })
-
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 14, marginTop: 18, flexWrap: "wrap",
-      ...(isMobile
-        ? { flexDirection: "column" as const }
-        : { justifyContent: "space-between" }),
-    }}>
-      <span style={{ color: "#666", fontSize: 12 }}>
-        Mostrando {inicio} a {fim} de {total} {total === 1 ? "filiado" : "filiados"}
-      </span>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <button
-          type="button"
-          onClick={() => { if (!semAnterior) onPagina(pagina - 1) }}
-          disabled={semAnterior}
-          aria-label="Página anterior"
-          style={setaStyle(semAnterior)}
-        >
-          <span aria-hidden="true">‹</span> Anterior
-        </button>
-
-        {paginasVisiveis(pagina, totalPaginas).map((n, i) =>
-          n === "..." ? (
-            <span key={`gap-${i}`} style={{ color: "#444", fontSize: 12, padding: "0 4px" }}>...</span>
-          ) : (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onPagina(n)}
-              aria-label={`Página ${n}`}
-              aria-current={n === pagina ? "page" : undefined}
-              style={{
-                minWidth: 30, height: 30, borderRadius: 5, border: "none",
-                background: n === pagina ? "#F0B90B" : "none",
-                color: n === pagina ? "#0A0A0A" : "#ccc",
-                fontSize: 12, fontWeight: 800, cursor: "pointer", padding: "0 8px",
-              }}
-            >
-              {n}
-            </button>
-          ),
-        )}
-
-        <button
-          type="button"
-          onClick={() => { if (!semProxima) onPagina(pagina + 1) }}
-          disabled={semProxima}
-          aria-label="Próxima página"
-          style={setaStyle(semProxima)}
-        >
-          Próxima <span aria-hidden="true">›</span>
-        </button>
-      </div>
-
-      <select
-        value={porPagina}
-        onChange={(e) => onPorPagina(Number(e.target.value))}
-        aria-label="Filiados por página"
-        style={{ background: "#111", border: "1px solid #2a2a2a", color: "#eee", fontSize: 12, padding: "9px 12px", borderRadius: 6, outline: "none", cursor: "pointer" }}
-      >
-        {POR_PAGINA_OPCOES.map((n) => (
-          <option key={n} value={n}>{n} por página</option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
 export default function Admin() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -183,6 +60,13 @@ export default function Admin() {
   // espremer o botão de ação, então a lista vira cards.
   const isMobile = useMediaQuery("(max-width: 1024px)")
   const [rows, setRows] = useState<AdminAffiliate[]>([])
+  // Qual listagem o painel está mostrando: filiados ou inscrições da etapa.
+  const [secao, setSecao] = useState<"filiados" | "padua">("filiados")
+  const eventoPadua = getEventById(PADUA_EVENT_ID)
+  // No mobile a fonte acompanha a largura da tela para "Filiados / <evento>"
+  // caber numa linha só: em 375px dá ~25px, em 320px ~21px.
+  const tituloFonte = isMobile ? "clamp(18px, 6.6vw, 44px)" : 44
+  const tituloGap = isMobile ? 8 : 16
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState("")
   const [confirmando, setConfirmando] = useState<string | null>(null)
@@ -464,7 +348,26 @@ export default function Admin() {
     [visiveis, paginaAtual, porPagina],
   )
 
-  const sortArrow = (key: Exclude<SortKey, null>) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "")
+  /**
+   * Cabeçalho clicável. A seta fica sempre visível (apagada quando a coluna
+   * não é a ordenada): sem ela nada indicava que dava para ordenar.
+   */
+  const thOrdenavel = (label: string, key: Exclude<SortKey, null>) => {
+    const ativa = sortKey === key
+    return (
+      <th
+        style={{ ...th, cursor: "pointer", userSelect: "none", color: ativa ? "#F0B90B" : "#666" }}
+        onClick={() => toggleSort(key)}
+        title={`Ordenar por ${label.toLowerCase()}`}
+        aria-sort={ativa ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        {label}
+        <span aria-hidden="true" style={{ marginLeft: 5, opacity: ativa ? 1 : 0.45 }}>
+          {ativa ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </th>
+    )
+  }
 
   // Botões de ação de uma linha/card (mesmo comportamento em desktop e mobile).
   const acoes = (a: AdminAffiliate, largura?: boolean): React.ReactNode => {
@@ -487,7 +390,9 @@ export default function Admin() {
       )
     }
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: largura ? 1 : undefined }}>
+      // No desktop o menu "⋮" fica ao lado do botão: um respiro maior evita que
+      // os dois pareçam o mesmo controle. No mobile eles dividem a linha.
+      <div style={{ display: "flex", alignItems: "center", gap: largura ? 10 : 16, flex: largura ? 1 : undefined }}>
         {eff === "active" ? (
           // BUG-05: quando ativo, não é mais um botão clicável.
           <span title={`Ativo até ${formatDate(a.validUntil)}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, flex: largura ? 1 : undefined, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontSize: 11, fontWeight: 800, padding: "10px 12px", borderRadius: 5, letterSpacing: 0.5, textTransform: "uppercase" }}>
@@ -540,10 +445,29 @@ export default function Admin() {
             <div style={{ color: "#F0B90B", fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", marginBottom: 6 }}>
               Painel Administrativo
             </div>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 44, color: "#fff", letterSpacing: 2, margin: 0 }}>
-              Filiados
-            </h1>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: tituloGap, flexWrap: "wrap" }}>
+              {([["filiados", "Filiados"], ["padua", eventoPadua?.title ?? "Inscrições"]] as const).map(([key, label], i) => (
+                <div key={key} style={{ display: "flex", alignItems: "baseline", gap: tituloGap }}>
+                  {i > 0 && (
+                    <span aria-hidden="true" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: tituloFonte, color: "#2e2e2e", lineHeight: 1 }}>/</span>
+                  )}
+                  <button
+                    onClick={() => setSecao(key)}
+                    style={{
+                      fontFamily: "'Bebas Neue', sans-serif", fontSize: tituloFonte, letterSpacing: 2, whiteSpace: "nowrap",
+                      // O inativo fica apagado: é o mesmo título, só que em segundo plano.
+                      color: secao === key ? "#fff" : "#4a4a4a",
+                      background: "none", border: "none", padding: 0, margin: 0,
+                      cursor: secao === key ? "default" : "pointer", lineHeight: 1,
+                      textAlign: "left",
+                    }}
+                  >
+                    {label}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: secao === "filiados" ? "flex" : "none", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
               {resumoItem("filiados", rows.length, "all", "#888")}
               <span style={{ color: "#333" }}>·</span>
               {resumoItem("ativos", ativos, "active", "#22c55e")}
@@ -563,6 +487,15 @@ export default function Admin() {
           </div>
         </div>
 
+        {secao === "padua" ? (
+          <InscricoesPadua
+            affiliates={rows}
+            academies={academies}
+            academyName={academyName}
+            isMobile={isMobile}
+          />
+        ) : (
+        <>
         {/* Abas por tipo + busca */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -686,9 +619,9 @@ export default function Admin() {
                   <th style={th}>Faixa</th>
                   <th style={th}>Tipo</th>
                   <th style={th}>Status</th>
-                  <th style={{ ...th, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("lastPaymentAt")}>Últ. pagamento{sortArrow("lastPaymentAt")}</th>
-                  <th style={{ ...th, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("validUntil")}>Validade{sortArrow("validUntil")}</th>
-                  <th style={{ ...th, textAlign: "right", paddingRight: 22 }}>Ação</th>
+                  {thOrdenavel("Últ. pagamento", "lastPaymentAt")}
+                  {thOrdenavel("Validade", "validUntil")}
+                  <th style={{ ...th, textAlign: "right", paddingRight: 76 }}>Ação</th>
                 </tr>
               </thead>
               <tbody>
@@ -869,6 +802,8 @@ export default function Admin() {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Menu de ações (M-01) — fora do container com overflow para não ser

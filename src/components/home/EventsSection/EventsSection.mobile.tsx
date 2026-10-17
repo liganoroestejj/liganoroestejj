@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { events, hasDate } from "../../../data/events"
+import { events, hasDate, getEventPlaceLabel } from "../../../data/events"
 
 export default function EventsSectionMobile() {
   return (
@@ -32,17 +32,21 @@ export default function EventsSectionMobile() {
               ev.currentTarget.style.boxShadow = "none"
             } : undefined}
           >
-            <div style={{ width: 72, position: "relative", overflow: "hidden", flexShrink: 0 }}>
-              <img src={e.img} alt={`Etapa ${e.etapa}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <div style={{ width: 72, position: "relative", overflow: "hidden", flexShrink: 0, alignSelf: "stretch" }}>
+              <img src={e.img} alt={`Etapa ${e.etapa}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 35, color: "#F0B90B", lineHeight: 1 }}>{e.etapa}</span>
                 <span style={{ fontSize: 8, fontWeight: 700, color: "#ccc", letterSpacing: 1.5, textTransform: "uppercase" }}>Etapa</span>
               </div>
             </div>
             <div style={{ padding: "12px 16px", flex: 1 }}>
-              {e.open && <div style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 8, fontWeight: 800, padding: "2px 8px", borderRadius: 3, display: "inline-block", marginBottom: 6 }}>Inscrições Abertas</div>}
-              <div style={{ background: "#0A0A0A", color: "#F0B90B", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 3, display: "inline-block", marginBottom: 5 }}>{e.date}</div>
-              <div style={{ color: "#999", fontSize: 12 }}>📍 {e.city}</div>
+              {/* Selo e data dividem a linha: sem o gap os dois ficavam colados,
+                  e em tela estreita a data desce para a linha de baixo. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 5 }}>
+                {e.open && <span style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 8, fontWeight: 800, padding: "3px 8px", borderRadius: 3 }}>Inscrições Abertas</span>}
+                <span style={{ background: "#0A0A0A", color: "#F0B90B", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 3 }}>{e.date}</span>
+              </div>
+              <div style={{ color: "#999", fontSize: 12 }}>{getEventPlaceLabel(e)}</div>
             </div>
           </div>
         )

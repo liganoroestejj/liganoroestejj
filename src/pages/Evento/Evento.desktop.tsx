@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom"
 import HeaderDesktop from "../../components/home/Header/Header.desktop"
-import { getEventById } from "../../data/events"
+import { getEventById, getEventStatus } from "../../data/events"
 
 export default function EventoDesktop() {
   const { id } = useParams()
@@ -28,6 +28,14 @@ export default function EventoDesktop() {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, padding: "6px 14px", borderRadius: 4, marginBottom: 32 }}>
               📅 {evento.date}
             </div>
+            {evento.open && getEventStatus(evento) !== "passado" && (
+              <Link
+                to={`/evento/${evento.id}/inscricao`}
+                style={{ background: "#F0B90B", color: "#0A0A0A", fontSize: 14, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "14px 40px", borderRadius: 5, marginBottom: 32 }}
+              >
+                Inscrever-se
+              </Link>
+            )}
             <img
               src={evento.img}
               alt={evento.title}

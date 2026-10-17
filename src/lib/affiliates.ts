@@ -263,6 +263,7 @@ export interface AdminAffiliate {
   academyId: number
   belt: number
   role: number
+  gender?: number
   status: string
   photoURL?: string
   birthDate?: string

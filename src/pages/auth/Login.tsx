@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
 import { authErrorMessage } from "../../lib/authErrors"
 import * as s from "./authStyles"
@@ -9,6 +9,10 @@ const REMEMBER_KEY = "lnjjp_login"
 export default function Login() {
   const { signIn, resetPassword } = useAuth()
   const navigate = useNavigate()
+  // Quando o login é exigido por outra tela (ex.: inscrição em etapa), ela manda
+  // o destino de volta e o motivo para mostrar aqui.
+  const { state } = useLocation() as { state?: { from?: string; aviso?: string } }
+  const destino = state?.from ?? "/painel"
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -64,7 +68,7 @@ export default function Login() {
         localStorage.removeItem(REMEMBER_KEY)
       }
       // O redirecionamento admin x usuário acontece no /painel.
-      navigate("/painel", { replace: true })
+      navigate(destino, { replace: true })
     } catch (err) {
       setErro(authErrorMessage(err))
     } finally {
@@ -80,6 +84,12 @@ export default function Login() {
         </Link>
         <h1 style={s.title}>ENTRAR</h1>
         <div style={s.subtitle}>Liga Noroeste Jiu-Jitsu Pro</div>
+
+        {state?.aviso && (
+          <div style={{ background: "rgba(240,185,11,0.08)", border: "1px solid rgba(240,185,11,0.35)", color: "#F0B90B", fontSize: 13, lineHeight: 1.5, padding: "10px 14px", borderRadius: 6, marginBottom: 18 }}>
+            {state.aviso}
+          </div>
+        )}
 
         {erro && <div style={s.error}>{erro}</div>}
         {aviso && (

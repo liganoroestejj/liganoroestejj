@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import Admin from "./Admin"
-import { adminReactivate, adminSoftDelete, confirmPayment, type AdminAffiliate } from "../../lib/affiliates"
+import { adminReactivate, adminSoftDelete, type AdminAffiliate } from "../../lib/affiliates"
 
 jest.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: { uid: "admin-1" }, isAdmin: true, logout: jest.fn() }),
@@ -15,6 +15,17 @@ jest.mock("../../lib/affiliates", () => ({
   adminSoftDelete: jest.fn(),
   adminReactivate: jest.fn(),
   adminRevertPayment: jest.fn(),
+}))
+
+// Borda da lib de inscrições: a aba do campeonato não é exercida aqui, mas o
+// módulo é importado pelo Admin — sem o mock ele carregaria o Firebase.
+const mockListRegistrations = jest.fn(() => Promise.resolve([]))
+jest.mock("../../lib/registrations", () => ({
+  PADUA_EVENT_ID: "2",
+  listRegistrations: () => mockListRegistrations(),
+  setRegistrationPaid: jest.fn(),
+  removeRegistration: jest.fn(),
+  reactivateRegistration: jest.fn(),
 }))
 
 const mockAddAcademy = jest.fn()

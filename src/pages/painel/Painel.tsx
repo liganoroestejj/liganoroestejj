@@ -7,6 +7,8 @@ import { useAuth } from "../../context/AuthContext"
 import { removeProfilePhoto, updateAffiliateProfile, uploadProfilePhoto, type EditableProfile } from "../../lib/affiliates"
 import { BELT_LABELS, GENDER_LABELS, ROLE_LABELS, effectiveStatus, MEMBERSHIP_FEE, STATES, WHATSAPP_PHONE } from "../../lib/affiliateOptions"
 import { useAcademies } from "../../hooks/useAcademies"
+import { getRegistration, PADUA_EVENT_ID, type Registration } from "../../lib/registrations"
+import { getEventById } from "../../data/events"
 import { formatCep, formatPhone } from "../../lib/masks"
 import { isValidEmail } from "../../lib/sanitize"
 
@@ -102,6 +104,8 @@ export default function Painel() {
   const { user, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
   const [affiliate, setAffiliate] = useState<Affiliate | null>(null)
+  const [inscricao, setInscricao] = useState<Registration | null>(null)
+  const eventoPadua = getEventById(PADUA_EVENT_ID)
   const [carregando, setCarregando] = useState(true)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [removendoFoto, setRemovendoFoto] = useState(false)
@@ -130,6 +134,17 @@ export default function Painel() {
       setCarregando(false)
     })()
   }, [user])
+
+  // Inscrição do atleta na etapa de Pádua, se houver — mostrada em resumo.
+  // Falha silenciosa: é um extra, não pode derrubar o painel.
+  useEffect(() => {
+    if (!affiliate?.cpf) return
+    let ativo = true
+    getRegistration(affiliate.cpf)
+      .then((r) => { if (ativo) setInscricao(r) })
+      .catch(() => { /* ignora: o resumo apenas não aparece */ })
+    return () => { ativo = false }
+  }, [affiliate?.cpf])
 
   // A conta de administrador é redirecionada para o painel admin.
   if (isAdmin) return <Navigate to="/admin" replace />
@@ -459,6 +474,27 @@ export default function Painel() {
                 </form>
               )}
             </div>
+
+            {/* Resumo da inscrição na etapa — leva à tela com o status completo */}
+            {inscricao && inscricao.status !== "removed" && eventoPadua && (
+              <Link
+                to={`/evento/${PADUA_EVENT_ID}/inscricao`}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", background: "#111", border: "1px solid #222", borderRadius: 8, padding: "18px 24px", marginBottom: 28, textDecoration: "none" }}
+              >
+                <div>
+                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>{eventoPadua.title}</div>
+                  <div style={{ color: "#777", fontSize: 12, marginTop: 4 }}>
+                    {eventoPadua.date} · Inscrição R$ {inscricao.fee},00
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ color: inscricao.status === "paid" ? "#22c55e" : "#F0B90B", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+                    ● {inscricao.status === "paid" ? "Pagamento confirmado" : "Pagamento pendente"}
+                  </span>
+                  <span style={{ color: "#F0B90B", fontSize: 18 }}>›</span>
+                </div>
+              </Link>
+            )}
 
             {/* Carteirinha digital — liberada após o 1º pagamento confirmado */}
             <div style={{ color: "#F0B90B", fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", marginBottom: 12, textAlign: "center" }}>

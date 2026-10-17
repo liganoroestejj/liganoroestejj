@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { events, hasDate } from "../../../data/events"
+import { events, hasDate, getEventPlaceLabel } from "../../../data/events"
 
 export default function EventsSectionDesktop() {
   return (
@@ -42,7 +42,7 @@ export default function EventsSectionDesktop() {
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0A0A0A", color: "#F0B90B", fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 4, marginBottom: 7 }}>
                   📅 {e.date}
                 </div>
-                <div style={{ color: "#888", fontSize: 12 }}>📍 {e.city}</div>
+                <div style={{ color: "#888", fontSize: 12 }}>{getEventPlaceLabel(e)}</div>
               </div>
             </div>
           )

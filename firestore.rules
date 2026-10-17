@@ -87,6 +87,26 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Inscrições do campeonato de Pádua (2ª etapa). O id do doc é o CPF, o
+    // que garante uma inscrição por atleta. Guardamos só o vínculo e o
+    // pagamento: os dados do atleta saem sempre da filiação, pelo CPF.
+    match /paduaRegistrations/{cpf} {
+      allow get: if isAdmin() || isOwner(cpf);
+      allow list: if isAdmin();
+      // O próprio filiado se inscreve. A inscrição nasce SEMPRE pendente:
+      // confirmar o pagamento é do admin, igual à filiação.
+      // Só compete quem está com a filiação ativa (anuidade confirmada pelo
+      // admin). A validade em si é checada na tela; aqui barramos pendente e
+      // removido, que é o que importa no servidor.
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && isOwner(cpf)
+        && get(/databases/$(database)/documents/affiliates/$(cpf)).data.status == 'active'
+        && request.resource.data.cpf == cpf
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
     // Academias — leitura pública, escrita só admin.
     match /academies/{id} {
       allow read: if true;

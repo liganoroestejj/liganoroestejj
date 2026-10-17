@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom"
 import HeaderMobile from "../../components/home/Header/Header.mobile"
-import { getEventById } from "../../data/events"
+import { getEventById, getEventStatus } from "../../data/events"
 
 export default function EventoMobile() {
   const { id } = useParams()
@@ -28,6 +28,14 @@ export default function EventoMobile() {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#F0B90B", color: "#0A0A0A", fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 4, marginBottom: 22 }}>
               📅 {evento.date}
             </div>
+            {evento.open && getEventStatus(evento) !== "passado" && (
+              <Link
+                to={`/evento/${evento.id}/inscricao`}
+                style={{ width: "100%", textAlign: "center", background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "13px 24px", borderRadius: 5, marginBottom: 22, boxSizing: "border-box" }}
+              >
+                Inscrever-se
+              </Link>
+            )}
             <img
               src={evento.img}
               alt={evento.title}

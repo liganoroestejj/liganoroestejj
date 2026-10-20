@@ -1,4 +1,7 @@
-import { ageOnDate, FEE_FROM_10, FEE_UP_TO_9, registrationFee } from "./registrations"
+import {
+  ageOnDate, FEE_FROM_10, FEE_UP_TO_9, isValidWeight, MAX_WEIGHT, MIN_WEIGHT,
+  parseWeight, registrationFee,
+} from "./registrations"
 
 jest.mock("./firebase", () => ({ db: {} }))
 jest.mock("firebase/firestore", () => ({
@@ -64,5 +67,53 @@ describe("registrationFee — valor por idade", () => {
   it("usa os valores combinados: R$ 100 e R$ 120", () => {
     expect(FEE_UP_TO_9).toBe(100)
     expect(FEE_FROM_10).toBe(120)
+  })
+})
+
+describe("parseWeight — peso digitado", () => {
+  it("aceita ponto como separador decimal", () => {
+    expect(parseWeight("90.2")).toBe(90.2)
+  })
+
+  it("aceita vírgula, que é como se digita no Brasil", () => {
+    expect(parseWeight("90,2")).toBe(90.2)
+  })
+
+  it("aceita peso inteiro", () => {
+    expect(parseWeight("90")).toBe(90)
+  })
+
+  it("ignora espaços em volta", () => {
+    expect(parseWeight(" 90,2 ")).toBe(90.2)
+  })
+
+  it("não vira número com dois separadores", () => {
+    expect(Number.isNaN(parseWeight("90,2.5"))).toBe(true)
+  })
+
+  it("não vira número com texto", () => {
+    expect(Number.isNaN(parseWeight("noventa"))).toBe(true)
+  })
+})
+
+describe("isValidWeight — limites", () => {
+  it("aceita peso de criança e de adulto", () => {
+    expect(isValidWeight(28.5)).toBe(true)
+    expect(isValidWeight(90.2)).toBe(true)
+  })
+
+  it("aceita exatamente os limites", () => {
+    expect(isValidWeight(MIN_WEIGHT)).toBe(true)
+    expect(isValidWeight(MAX_WEIGHT)).toBe(true)
+  })
+
+  it("recusa abaixo do mínimo e acima do máximo", () => {
+    expect(isValidWeight(MIN_WEIGHT - 0.1)).toBe(false)
+    expect(isValidWeight(MAX_WEIGHT + 0.1)).toBe(false)
+  })
+
+  it("recusa não-número (campo vazio ou texto)", () => {
+    expect(isValidWeight(NaN)).toBe(false)
+    expect(isValidWeight(parseWeight(""))).toBe(false)
   })
 })

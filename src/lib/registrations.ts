@@ -18,6 +18,24 @@ export const FEE_UP_TO_9 = 100
 export const FEE_FROM_10 = 120
 const FEE_AGE_LIMIT = 9
 
+/**
+ * Limites do peso declarado, em kg. Servem para barrar digitação errada
+ * (vírgula no lugar errado, gramas em vez de quilos), não para julgar o
+ * atleta: a categoria infantil começa na faixa dos 15 kg.
+ */
+export const MIN_WEIGHT = 10
+export const MAX_WEIGHT = 250
+
+/** Peso válido: número dentro dos limites, com até uma casa decimal. */
+export function isValidWeight(kg: number): boolean {
+  return Number.isFinite(kg) && kg >= MIN_WEIGHT && kg <= MAX_WEIGHT
+}
+
+/** Lê o peso digitado ("82,5" ou "82.5") como número. NaN se não der. */
+export function parseWeight(texto: string): number {
+  return Number(texto.replace(",", ".").trim())
+}
+
 export type RegistrationStatus = "pending" | "paid" | "removed"
 
 export interface Registration {
@@ -25,6 +43,8 @@ export interface Registration {
   uid: string
   status: RegistrationStatus
   fee: number
+  /** Peso declarado pelo atleta na inscrição, em kg. */
+  weight: number
   createdAt?: { seconds: number } | null
   /** Quando o admin confirmou o pagamento. */
   paidAt?: { seconds: number } | null
@@ -67,6 +87,7 @@ export async function createRegistration(params: {
   cpf: string
   uid: string
   fee: number
+  weight: number
 }): Promise<Registration> {
   const cpf = cleanCpf(params.cpf)
   const existente = await getRegistration(cpf)
@@ -77,6 +98,7 @@ export async function createRegistration(params: {
     uid: params.uid,
     status: "pending",
     fee: params.fee,
+    weight: params.weight,
   }
   await setDoc(doc(db, PADUA_COLLECTION, cpf), { ...nova, createdAt: serverTimestamp() })
   return nova

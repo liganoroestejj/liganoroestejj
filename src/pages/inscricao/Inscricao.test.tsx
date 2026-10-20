@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import Inscricao from "./Inscricao"
 import type { Registration } from "../../lib/registrations"
@@ -30,12 +30,14 @@ jest.mock("firebase/firestore", () => ({
 }))
 jest.mock("../../lib/firebase", () => ({ db: {} }))
 
-// Borda da lib: só a criação da inscrição é mockada; o cálculo do valor por
-// idade continua sendo o de verdade (ver registrations.test.ts).
+// Borda da lib: leitura e gravação da inscrição são mockadas; o cálculo do
+// valor por idade e a validação do peso continuam os de verdade.
 const mockCreate = jest.fn()
+const mockGet = jest.fn()
 jest.mock("../../lib/registrations", () => ({
   ...jest.requireActual("../../lib/registrations"),
   createRegistration: (...a: unknown[]) => mockCreate(...a),
+  getRegistration: (...a: unknown[]) => mockGet(...a),
 }))
 
 /** Mostra o que a tela mandou para o /login (destino e motivo). */
@@ -62,7 +64,7 @@ function renderInscricao(rota = "/evento/2/inscricao") {
   )
 }
 
-const inscricaoPendente: Registration = { cpf: "12964858705", uid: "u1", status: "pending", fee: 120 }
+const inscricaoPendente: Registration = { cpf: "12964858705", uid: "u1", status: "pending", fee: 120, weight: 82.5 }
 
 const filiadoAtivo = {
   cpf: "12964858705",
@@ -85,6 +87,7 @@ beforeEach(() => {
   mockFiliacao = { ...filiadoAtivo }
   mockErroBusca = false
   mockCreate.mockResolvedValue(inscricaoPendente)
+  mockGet.mockResolvedValue(null) // por padrão, ainda não inscrito
 })
 
 afterEach(() => {
@@ -180,34 +183,97 @@ describe("Inscrição — situação da filiação", () => {
   })
 })
 
+/** Preenche o peso e envia o formulário da inscrição. */
+async function confirmarComPeso(valor = "82,5") {
+  const campo = await screen.findByLabelText("Peso (kg)")
+  fireEvent.change(campo, { target: { value: valor } })
+  fireEvent.click(screen.getByRole("button", { name: /confirmar inscrição/i }))
+}
+
+describe("Inscrição — peso", () => {
+  it("pede o peso antes de criar a inscrição", async () => {
+    renderInscricao()
+    expect(await screen.findByLabelText("Peso (kg)")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /confirmar inscrição/i })).toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it("mostra os dados do atleta e o valor já no formulário", async () => {
+    renderInscricao()
+    await screen.findByLabelText("Peso (kg)")
+    expect(screen.getByText("Maurício Rimes Vieira")).toBeInTheDocument()
+    expect(screen.getByText("129.648.587-05")).toBeInTheDocument()
+    expect(screen.getByText("R$ 120,00")).toBeInTheDocument()
+  })
+
+  it("recusa envio sem peso", async () => {
+    renderInscricao()
+    await screen.findByLabelText("Peso (kg)")
+    fireEvent.click(screen.getByRole("button", { name: /confirmar inscrição/i }))
+    expect(await screen.findByText(/informe o peso em quilos/i)).toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it("recusa peso fora dos limites", async () => {
+    renderInscricao()
+    await confirmarComPeso("3")
+    expect(await screen.findByText(/informe o peso em quilos/i)).toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it("aceita peso com vírgula", async () => {
+    renderInscricao()
+    await confirmarComPeso("82,5")
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ weight: 82.5 })))
+  })
+
+  it("não pede o peso de novo para quem já se inscreveu", async () => {
+    mockGet.mockResolvedValue(inscricaoPendente)
+    renderInscricao()
+    expect(await screen.findByText("INSCRIÇÃO ENVIADA")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Peso (kg)")).not.toBeInTheDocument()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+})
+
 describe("Inscrição — criação", () => {
   it("cria a inscrição do filiado em dia e confirma na tela", async () => {
     renderInscricao()
+    await confirmarComPeso()
     expect(await screen.findByText("INSCRIÇÃO ENVIADA")).toBeInTheDocument()
     expect(screen.getByText("Pagamento pendente")).toBeInTheDocument()
-    expect(mockCreate).toHaveBeenCalledWith({ cpf: "12964858705", uid: "u1", fee: 120 })
+    expect(mockCreate).toHaveBeenCalledWith({ cpf: "12964858705", uid: "u1", fee: 120, weight: 82.5 })
   })
 
   it("cobra R$ 100 de atleta com até 9 anos no dia do evento", async () => {
     mockFiliacao = { ...filiadoAtivo, birthDate: "2017-05-01" }
     mockCreate.mockResolvedValue({ ...inscricaoPendente, fee: 100 })
     renderInscricao()
+    await confirmarComPeso("28")
     await screen.findByText("INSCRIÇÃO ENVIADA")
-    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ fee: 100 }))
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ fee: 100, weight: 28 }))
     expect(screen.getByText("R$ 100,00")).toBeInTheDocument()
   })
 
-  it("mostra os dados do atleta e o valor da inscrição", async () => {
+  it("mostra o peso declarado no comprovante", async () => {
     renderInscricao()
+    await confirmarComPeso()
+    await screen.findByText("INSCRIÇÃO ENVIADA")
+    expect(screen.getByText("82.5 kg")).toBeInTheDocument()
+  })
+
+  it("mostra os dados do atleta no comprovante", async () => {
+    renderInscricao()
+    await confirmarComPeso()
     await screen.findByText("INSCRIÇÃO ENVIADA")
     expect(screen.getByText("Maurício Rimes Vieira")).toBeInTheDocument()
-    expect(screen.getByText("129.648.587-05")).toBeInTheDocument()
     expect(screen.getByText("Azul")).toBeInTheDocument()
     expect(screen.getByText("R$ 120,00")).toBeInTheDocument()
   })
 
   it("oferece o pagamento pelo WhatsApp com o valor na mensagem", async () => {
     renderInscricao()
+    await confirmarComPeso()
     await screen.findByText("INSCRIÇÃO ENVIADA")
     const link = screen.getByRole("link", { name: /pagar pelo whatsapp/i })
     expect(link).toHaveAttribute("href", expect.stringContaining("wa.me/"))
@@ -215,14 +281,14 @@ describe("Inscrição — criação", () => {
   })
 
   it("mostra inscrição já confirmada sem oferecer pagamento", async () => {
-    mockCreate.mockResolvedValue({ ...inscricaoPendente, status: "paid" })
+    mockGet.mockResolvedValue({ ...inscricaoPendente, status: "paid" })
     renderInscricao()
     expect(await screen.findByText("INSCRIÇÃO CONFIRMADA")).toBeInTheDocument()
     expect(screen.queryByRole("link", { name: /pagar pelo whatsapp/i })).not.toBeInTheDocument()
   })
 
   it("avisa quando a organização removeu a inscrição", async () => {
-    mockCreate.mockResolvedValue({ ...inscricaoPendente, status: "removed" })
+    mockGet.mockResolvedValue({ ...inscricaoPendente, status: "removed" })
     renderInscricao()
     expect(await screen.findByText("INSCRIÇÃO REMOVIDA")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: /falar com a organização/i })).toBeInTheDocument()
@@ -239,12 +305,14 @@ describe("Inscrição — erros", () => {
   it("mostra aviso amigável quando a gravação é negada", async () => {
     mockCreate.mockRejectedValue(Object.assign(new Error("negado"), { code: "permission-denied" }))
     renderInscricao()
+    await confirmarComPeso()
     expect(await screen.findByText(/não foi possível concluir sua inscrição/i)).toBeInTheDocument()
   })
 
   it("não vaza o código do erro para o atleta", async () => {
     mockCreate.mockRejectedValue(Object.assign(new Error("negado"), { code: "permission-denied" }))
     renderInscricao()
+    await confirmarComPeso()
     await screen.findByText(/não foi possível concluir sua inscrição/i)
     expect(screen.queryByText(/permission-denied/)).not.toBeInTheDocument()
   })
@@ -253,6 +321,7 @@ describe("Inscrição — erros", () => {
 describe("Inscrição — volta para o evento", () => {
   it("mantém o link de volta em todas as saídas", async () => {
     renderInscricao()
+    await confirmarComPeso()
     await screen.findByText("INSCRIÇÃO ENVIADA")
     await waitFor(() =>
       expect(screen.getByRole("link", { name: /voltar ao evento/i })).toHaveAttribute("href", "/evento/2"),

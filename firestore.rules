@@ -103,7 +103,12 @@ service cloud.firestore {
         && isOwner(cpf)
         && get(/databases/$(database)/documents/affiliates/$(cpf)).data.status == 'active'
         && request.resource.data.cpf == cpf
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        // Peso declarado: obrigatório e dentro de limites plausíveis (kg).
+        // Corrigir o peso é do admin, por isso update continua só dele.
+        && request.resource.data.weight is number
+        && request.resource.data.weight >= 10
+        && request.resource.data.weight <= 250;
       allow update, delete: if isAdmin();
     }
 

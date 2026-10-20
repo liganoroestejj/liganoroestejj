@@ -3,6 +3,7 @@ import type { AdminAffiliate } from "../../lib/affiliates"
 import type { Academy } from "../../lib/academies"
 import { BELT_LABELS, categoryFromBirthDate, GENDER_LABELS } from "../../lib/affiliateOptions"
 import { formatCpf } from "../../lib/cpf"
+import { weightClass } from "../../lib/weightClasses"
 import {
   listRegistrations,
   reactivateRegistration,
@@ -28,7 +29,7 @@ type StatusFiltro = "all" | "paid" | "pending" | "removed"
 type AcademiaFiltro = "all" | number
 // O sexo importa no chaveamento, então filtra só aqui, na lista do evento.
 type SexoFiltro = "all" | number
-type SortKey = "createdAt" | "fee" | null
+type SortKey = "createdAt" | "fee" | "weight" | null
 
 export default function InscricoesPadua({
   affiliates,
@@ -128,8 +129,12 @@ export default function InscricoesPadua({
     }
     if (sortKey) {
       list = [...list].sort((a, b) => {
-        const av = sortKey === "fee" ? (a.fee ?? 0) : (a.createdAt?.seconds ?? 0)
-        const bv = sortKey === "fee" ? (b.fee ?? 0) : (b.createdAt?.seconds ?? 0)
+        const valorDe = (l: Linha) =>
+          sortKey === "fee" ? (l.fee ?? 0)
+            : sortKey === "weight" ? (l.weight ?? 0)
+              : (l.createdAt?.seconds ?? 0)
+        const av = valorDe(a)
+        const bv = valorDe(b)
         const cmp = av < bv ? -1 : av > bv ? 1 : 0
         return sortDir === "asc" ? cmp : -cmp
       })
@@ -285,6 +290,17 @@ export default function InscricoesPadua({
 
   const categoria = (l: Linha) => (l.birthDate ? categoryFromBirthDate(l.birthDate).label : "—")
 
+  /**
+   * Categoria de peso pela tabela do sexo do atleta. Infantil e juvenil têm
+   * tabela própria, ainda não cadastrada: nesses casos fica só o peso.
+   */
+  const classePeso = (l: Linha) =>
+    weightClass({
+      weight: l.weight,
+      gender: l.gender,
+      ageCategoryId: l.birthDate ? categoryFromBirthDate(l.birthDate).id : undefined,
+    })
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, marginBottom: 22, flexWrap: "wrap" }}>
@@ -385,6 +401,10 @@ export default function InscricoesPadua({
                   {info("Faixa", BELT_LABELS[l.belt] ?? "—")}
                   {info("Sexo", l.gender ? GENDER_LABELS[l.gender] ?? "—" : "—")}
                   {info("Categoria", categoria(l))}
+                  {info(
+                    "Categoria de peso",
+                    l.weight ? `${classePeso(l) ?? "—"} · ${l.weight} kg` : "—",
+                  )}
                   {info("Valor", `R$ ${l.fee},00`)}
                   {info("Inscrito em", formatTs(l.createdAt))}
                 </div>
@@ -397,14 +417,15 @@ export default function InscricoesPadua({
         <div className="dark-scroll" style={{ background: "#111", border: "1px solid #222", borderRadius: 10, overflow: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720, tableLayout: "fixed" }}>
             <colgroup>
-              <col style={{ width: "19%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "7%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "6%" }} />
               <col style={{ width: "8%" }} />
               <col style={{ width: "9%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "22%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "18%" }} />
             </colgroup>
             <thead>
               <tr>
@@ -413,6 +434,7 @@ export default function InscricoesPadua({
                 <th style={th}>Faixa</th>
                 <th style={th}>Sexo</th>
                 <th style={th}>Categoria</th>
+                {thOrdenavel("Cat. de peso", "weight")}
                 {thOrdenavel("Valor", "fee")}
                 {thOrdenavel("Inscrito em", "createdAt")}
                 <th style={{ ...th, textAlign: "right", paddingRight: 76 }}>Ação</th>
@@ -437,6 +459,19 @@ export default function InscricoesPadua({
                     <td style={td}>{BELT_LABELS[l.belt] ?? "—"}</td>
                     <td style={td}>{l.gender ? GENDER_LABELS[l.gender] ?? "—" : "—"}</td>
                     <td style={td}>{categoria(l)}</td>
+                    <td
+                      style={td}
+                      title={l.weight && !classePeso(l) ? "Categoria infantil/juvenil: tabela de peso própria, ainda não cadastrada." : undefined}
+                    >
+                      {l.weight ? (
+                        <>
+                          <div style={{ color: classePeso(l) ? "#fff" : "#888", fontWeight: 700 }}>
+                            {classePeso(l) ?? `${l.weight} kg`}
+                          </div>
+                          {classePeso(l) && <div style={{ color: "#666", fontSize: 11 }}>{l.weight} kg</div>}
+                        </>
+                      ) : "—"}
+                    </td>
                     <td style={td}>R$ {l.fee},00</td>
                     <td style={td}>{formatTs(l.createdAt)}</td>
                     <td style={{ ...td, textAlign: "right", paddingRight: 22, overflow: "visible", textOverflow: "clip" }}>

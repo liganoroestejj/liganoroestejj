@@ -5,9 +5,15 @@ import { db } from "../../lib/firebase"
 import { useAuth } from "../../context/AuthContext"
 import { getEventById, getEventDate, getEventStatus } from "../../data/events"
 import { formatCpf } from "../../lib/cpf"
+import { weightClass } from "../../lib/weightClasses"
 import {
   createRegistration,
+  getRegistration,
+  isValidWeight,
+  MAX_WEIGHT,
+  MIN_WEIGHT,
   PADUA_EVENT_ID,
+  parseWeight,
   registrationFee,
   type Registration,
 } from "../../lib/registrations"
@@ -25,6 +31,7 @@ interface Affiliate {
   fullName: string
   birthDate?: string
   belt?: number
+  gender?: number
   status?: string
   validUntil?: string
 }
@@ -73,15 +80,21 @@ export default function Inscricao() {
   // Filiado sem data de nascimento: não dá para calcular o valor por idade.
   const [semNascimento, setSemNascimento] = useState(false)
   const [erro, setErro] = useState("")
+  // Peso declarado: única informação que não vem da filiação, porque muda a
+  // cada campeonato. Sem ele não há inscrição.
+  const [peso, setPeso] = useState("")
+  const [erroPeso, setErroPeso] = useState("")
+  const [enviando, setEnviando] = useState(false)
+  const [valor, setValor] = useState(0)
 
   // A coleção de inscrições é a do Open Pádua: nenhuma outra etapa grava aqui,
   // e depois da data do evento ninguém mais se inscreve.
   const inscricoesAbertas =
     !!evento && evento.id === PADUA_EVENT_ID && evento.open && getEventStatus(evento) !== "passado"
 
-  // Ao abrir a tela (o atleta já clicou em "Inscrever-se" e está logado), a
-  // inscrição é criada direto: não há formulário, os dados vêm da filiação.
-  // O id do documento é o CPF, então reabrir a página não duplica nada.
+  // Ao abrir a tela carregamos a filiação (todos os dados do atleta vêm dela)
+  // e uma inscrição já existente. A gravação em si só acontece quando o atleta
+  // informa o peso e confirma.
   useEffect(() => {
     if (!user || !evento || !inscricoesAbertas) return
     const dataEvento = getEventDate(evento)
@@ -107,13 +120,16 @@ export default function Inscricao() {
           setSemNascimento(true)
           return
         }
-        const valor = registrationFee(dados.birthDate, dataEvento)
-        setInscricao(await createRegistration({ cpf: dados.cpf, uid: user.uid, fee: valor }))
+        setValor(registrationFee(dados.birthDate, dataEvento))
+        // Já inscrito? Vai direto para o comprovante, sem pedir o peso de novo.
+        const jaInscrito = await getRegistration(dados.cpf)
+        if (ativo && jaInscrito) setInscricao(jaInscrito)
       } catch (err) {
         // O detalhe fica só no console (o atleta vê apenas o aviso amigável).
         // Causa mais comum: a regra do Firestore para `paduaRegistrations`
-        // ainda não publicada — aí a escrita volta como `permission-denied`.
-        console.error("[inscricao] falha ao criar inscrição:", err)
+        // ainda não publicada — aí a leitura/escrita volta como
+        // `permission-denied`.
+        console.error("[inscricao] falha ao carregar a inscrição:", err)
         if (ativo) setErro("Não foi possível concluir sua inscrição agora. Tente novamente em alguns minutos.")
       } finally {
         if (ativo) setCarregando(false)
@@ -123,6 +139,28 @@ export default function Inscricao() {
       ativo = false
     }
   }, [user, evento, inscricoesAbertas])
+
+  async function confirmar(e: React.FormEvent) {
+    e.preventDefault()
+    if (!afiliado || !user) return
+    const kg = parseWeight(peso)
+    if (!isValidWeight(kg)) {
+      setErroPeso(`Informe o peso em quilos, entre ${MIN_WEIGHT} e ${MAX_WEIGHT}.`)
+      return
+    }
+    setErroPeso("")
+    setErro("")
+    setEnviando(true)
+    try {
+      // O id do documento é o CPF, então confirmar duas vezes não duplica.
+      setInscricao(await createRegistration({ cpf: afiliado.cpf, uid: user.uid, fee: valor, weight: kg }))
+    } catch (err) {
+      console.error("[inscricao] falha ao criar inscrição:", err)
+      setErro("Não foi possível concluir sua inscrição agora. Tente novamente em alguns minutos.")
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   if (loading) return telaCarregando("CARREGANDO...")
 
@@ -172,7 +210,7 @@ export default function Inscricao() {
     )
   }
 
-  if (carregando) return telaCarregando("CONFIRMANDO INSCRIÇÃO...")
+  if (carregando) return telaCarregando("CARREGANDO SEUS DADOS...")
 
   if (filiacaoEmAberto && afiliado) {
     const emAtraso = effectiveStatus(afiliado.status ?? "pending", afiliado.validUntil) === "overdue"
@@ -239,7 +277,7 @@ export default function Inscricao() {
     )
   }
 
-  if (erro || !inscricao || !afiliado) {
+  if (!afiliado) {
     return (
       <div style={s.page}>
         <div style={s.card}>
@@ -250,6 +288,55 @@ export default function Inscricao() {
             <Link to={`/evento/${evento.id}`} style={{ color: "#F0B90B", fontWeight: 700 }}>← Voltar ao evento</Link>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // Ainda não inscrito: falta o peso, a única coisa que o atleta informa.
+  if (!inscricao) {
+    return (
+      <div style={s.page}>
+        <form style={s.card} onSubmit={confirmar}>
+          <Link to={`/evento/${evento.id}`} style={{ color: "#999", fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: 1, display: "inline-block", marginBottom: 20 }}>
+            ← Voltar ao evento
+          </Link>
+          <h1 style={s.title}>INSCRIÇÃO</h1>
+          <div style={s.subtitle}>{evento.title} · {evento.date}</div>
+
+          {erro && <div style={s.error}>{erro}</div>}
+
+          <div style={{ marginBottom: 22 }}>
+            <div style={linha}><span style={rotulo}>Atleta</span><span>{afiliado.fullName}</span></div>
+            <div style={linha}><span style={rotulo}>CPF</span><span>{formatCpf(afiliado.cpf)}</span></div>
+            <div style={linha}><span style={rotulo}>Faixa</span><span>{afiliado.belt ? BELT_LABELS[afiliado.belt] : "—"}</span></div>
+            <div style={linha}>
+              <span style={rotulo}>Categoria</span>
+              <span>{afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).label : "—"}</span>
+            </div>
+            <div style={linha}><span style={rotulo}>Valor</span><span>R$ {valor},00</span></div>
+          </div>
+
+          <label style={s.label} htmlFor="peso">Peso (kg)</label>
+          <input
+            id="peso"
+            style={s.input}
+            value={peso}
+            onChange={(e) => setPeso(e.target.value.replace(/[^\d.,]/g, "").slice(0, 6))}
+            placeholder="Ex.: 82,5"
+            inputMode="decimal"
+            autoFocus
+          />
+          {erroPeso && <div style={{ color: "#f87171", fontSize: 12, marginTop: -10, marginBottom: 14 }}>{erroPeso}</div>}
+
+          <div style={avisoBox}>
+            Informe o peso com que pretende competir. Ele define sua categoria
+            de peso e só pode ser alterado pela organização.
+          </div>
+
+          <button style={{ ...s.button, opacity: enviando ? 0.6 : 1 }} disabled={enviando}>
+            {enviando ? "Enviando..." : "Confirmar inscrição"}
+          </button>
+        </form>
       </div>
     )
   }
@@ -282,6 +369,12 @@ export default function Inscricao() {
   }
 
   const paga = inscricao.status === "paid"
+  // Só o Adulto e os Masters têm tabela cadastrada; nos outros fica só o peso.
+  const classeDePeso = weightClass({
+    weight: inscricao.weight,
+    gender: afiliado.gender,
+    ageCategoryId: afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).id : undefined,
+  })
   const categoria = afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).label : "—"
   const faixa = afiliado.belt ? BELT_LABELS[afiliado.belt] : "—"
   const msg = encodeURIComponent(
@@ -301,6 +394,10 @@ export default function Inscricao() {
           <div style={linha}><span style={rotulo}>CPF</span><span>{formatCpf(afiliado.cpf)}</span></div>
           <div style={linha}><span style={rotulo}>Faixa</span><span>{faixa}</span></div>
           <div style={linha}><span style={rotulo}>Categoria</span><span>{categoria}</span></div>
+          <div style={linha}><span style={rotulo}>Peso declarado</span><span>{inscricao.weight ? `${inscricao.weight} kg` : "—"}</span></div>
+          {classeDePeso && (
+            <div style={linha}><span style={rotulo}>Categoria de peso</span><span>{classeDePeso}</span></div>
+          )}
         </div>
 
         <div style={{ background: "#0A0A0A", border: "1px solid #333", borderRadius: 6, padding: "16px 18px", marginBottom: 22 }}>

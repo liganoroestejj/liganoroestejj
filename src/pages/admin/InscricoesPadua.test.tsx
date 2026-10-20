@@ -29,9 +29,9 @@ const filiados: AdminAffiliate[] = [
 ]
 
 const inscricoes: Registration[] = [
-  { cpf: "11111111111", uid: "u1", status: "paid", fee: 120, createdAt: { seconds: 1760000000 } },
-  { cpf: "22222222222", uid: "u2", status: "pending", fee: 100, createdAt: { seconds: 1761000000 } },
-  { cpf: "33333333333", uid: "u3", status: "pending", fee: 120, createdAt: { seconds: 1762000000 } },
+  { cpf: "11111111111", uid: "u1", status: "paid", fee: 120, weight: 64, createdAt: { seconds: 1760000000 } },
+  { cpf: "22222222222", uid: "u2", status: "pending", fee: 100, weight: 28.5, createdAt: { seconds: 1761000000 } },
+  { cpf: "33333333333", uid: "u3", status: "pending", fee: 120, weight: 91, createdAt: { seconds: 1762000000 } },
 ]
 
 function renderLista(isMobile = false) {
@@ -97,7 +97,7 @@ describe("Inscrições — dados vindos da filiação", () => {
   })
 
   it("marca inscrição cujo filiado não existe mais", async () => {
-    mockList.mockResolvedValue([{ cpf: "99999999999", uid: "u9", status: "pending", fee: 120 }])
+    mockList.mockResolvedValue([{ cpf: "99999999999", uid: "u9", status: "pending", fee: 120, weight: 70 }])
     renderLista()
     expect(await screen.findByText("Filiação removida")).toBeInTheDocument()
   })
@@ -190,6 +190,51 @@ describe("Inscrições — filtros", () => {
     fireEvent.change(screen.getByPlaceholderText(/buscar por nome/i), { target: { value: "ana" } })
     expect(screen.getByText("Ana Resende")).toBeInTheDocument()
     expect(screen.queryByText("Carla Dias")).not.toBeInTheDocument()
+  })
+})
+
+describe("Inscrições — peso", () => {
+  it("mostra o peso declarado de cada inscrito", async () => {
+    renderLista()
+    await aguardarLista()
+    const linha = screen.getByText("Bruno Lima").closest("tr") as HTMLElement
+    expect(within(linha).getByText("28.5 kg")).toBeInTheDocument()
+  })
+
+  it("mostra traço quando a inscrição antiga não tem peso", async () => {
+    mockList.mockResolvedValue([{ cpf: "11111111111", uid: "u1", status: "pending", fee: 120 }])
+    renderLista()
+    await aguardarLista()
+    // A coluna de peso é a sexta; sem peso ela mostra traço, como categoria.
+    const linha = screen.getByText("Ana Resende").closest("tr") as HTMLElement
+    expect(linha.querySelectorAll("td")[5]).toHaveTextContent("—")
+    expect(within(linha).queryByText(/kg/)).not.toBeInTheDocument()
+  })
+
+  it("ordena por peso", async () => {
+    renderLista()
+    await aguardarLista()
+    fireEvent.click(screen.getByText(/^Cat\. de peso/))
+    const primeiro = screen.getAllByTitle(/Ana Resende|Bruno Lima|Carla Dias/)[0]
+    expect(primeiro).toHaveTextContent("Bruno Lima") // 28,5 kg
+  })
+
+  it("mostra categoria de peso e quilos no card do mobile", async () => {
+    renderLista(true)
+    await aguardarLista()
+    const cartao = screen.getByText("Ana Resende").closest("div[style*='border-radius: 10px']") as HTMLElement
+    // Ana tem 64 kg e é feminino adulto: Leve (limite 64,0).
+    expect(within(cartao).getByText("Leve · 64 kg")).toBeInTheDocument()
+  })
+
+  it("classifica pela tabela do sexo do atleta", async () => {
+    renderLista()
+    await aguardarLista()
+    const ana = screen.getByText("Ana Resende").closest("tr") as HTMLElement
+    expect(within(ana).getByText("Leve")).toBeInTheDocument() // feminino, 64 kg
+    const carla = screen.getByText("Carla Dias").closest("tr") as HTMLElement
+    // Carla tem 91 kg, mas é juvenil: tabela adulta não se aplica.
+    expect(within(carla).getByText("91 kg")).toBeInTheDocument()
   })
 })
 
@@ -312,7 +357,7 @@ describe("Inscrições — remover e reativar", () => {
   it("reativa a inscrição, que volta como pendente", async () => {
     mockList.mockResolvedValue([
       ...inscricoes.map((i) => ({ ...i })),
-      { cpf: "33333333333", uid: "u3", status: "removed", fee: 120 },
+      { cpf: "33333333333", uid: "u3", status: "removed", fee: 120, weight: 91 },
     ])
     renderLista()
     await aguardarLista()
@@ -323,7 +368,7 @@ describe("Inscrições — remover e reativar", () => {
   })
 
   it("inscrição removida não oferece marcar pago nem menu", async () => {
-    mockList.mockResolvedValue([{ cpf: "11111111111", uid: "u1", status: "removed", fee: 120 }])
+    mockList.mockResolvedValue([{ cpf: "11111111111", uid: "u1", status: "removed", fee: 120, weight: 64 }])
     renderLista()
     fireEvent.click(await screen.findByRole("button", { name: "1 removidas" }))
     expect(screen.getByText("Ana Resende")).toBeInTheDocument()
@@ -381,6 +426,7 @@ describe("Inscrições — paginação", () => {
       uid: `u${i}`,
       status: "pending" as const,
       fee: 120,
+      weight: 70,
     }))
     mockList.mockResolvedValue(muitas)
     renderLista()

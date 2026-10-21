@@ -5,7 +5,7 @@ import { db } from "../../lib/firebase"
 import { useAuth } from "../../context/AuthContext"
 import { getEventById, getEventDate, getEventStatus } from "../../data/events"
 import { formatCpf } from "../../lib/cpf"
-import { weightClass } from "../../lib/weightClasses"
+import { competitionCategoryLabel, weightClass } from "../../lib/weightClasses"
 import {
   createRegistration,
   getRegistration,
@@ -139,6 +139,15 @@ export default function Inscricao() {
       ativo = false
     }
   }, [user, evento, inscricoesAbertas])
+
+  // Categoria e classe de peso valem pela idade no dia do evento.
+  const dataDoEvento = evento ? getEventDate(evento) : null
+  const categoriaIdNoEvento = afiliado?.birthDate && dataDoEvento
+    ? categoryFromBirthDate(afiliado.birthDate, dataDoEvento).id
+    : undefined
+  const categoriaNoEvento = categoriaIdNoEvento !== undefined
+    ? competitionCategoryLabel(categoriaIdNoEvento)
+    : null
 
   async function confirmar(e: React.FormEvent) {
     e.preventDefault()
@@ -311,7 +320,7 @@ export default function Inscricao() {
             <div style={linha}><span style={rotulo}>Faixa</span><span>{afiliado.belt ? BELT_LABELS[afiliado.belt] : "—"}</span></div>
             <div style={linha}>
               <span style={rotulo}>Categoria</span>
-              <span>{afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).label : "—"}</span>
+              <span>{categoriaNoEvento ?? "—"}</span>
             </div>
             <div style={linha}><span style={rotulo}>Valor</span><span>R$ {valor},00</span></div>
           </div>
@@ -373,9 +382,9 @@ export default function Inscricao() {
   const classeDePeso = weightClass({
     weight: inscricao.weight,
     gender: afiliado.gender,
-    ageCategoryId: afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).id : undefined,
+    ageCategoryId: categoriaIdNoEvento,
   })
-  const categoria = afiliado.birthDate ? categoryFromBirthDate(afiliado.birthDate).label : "—"
+  const categoria = categoriaNoEvento ?? "—"
   const faixa = afiliado.belt ? BELT_LABELS[afiliado.belt] : "—"
   const msg = encodeURIComponent(
     `Olá! Me inscrevi no ${evento.title} (${afiliado.fullName}, CPF ${formatCpf(afiliado.cpf)}) e quero pagar a inscrição de R$ ${inscricao.fee},00.`,

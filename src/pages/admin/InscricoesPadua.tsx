@@ -3,7 +3,9 @@ import type { AdminAffiliate } from "../../lib/affiliates"
 import type { Academy } from "../../lib/academies"
 import { BELT_LABELS, categoryFromBirthDate, GENDER_LABELS } from "../../lib/affiliateOptions"
 import { formatCpf } from "../../lib/cpf"
-import { weightClass } from "../../lib/weightClasses"
+import { competitionCategoryLabel, weightClass } from "../../lib/weightClasses"
+import { getEventById, getEventDate } from "../../data/events"
+import { PADUA_EVENT_ID } from "../../lib/registrations"
 import {
   listRegistrations,
   reactivateRegistration,
@@ -288,7 +290,19 @@ export default function InscricoesPadua({
     )
   }
 
-  const categoria = (l: Linha) => (l.birthDate ? categoryFromBirthDate(l.birthDate).label : "—")
+  // A categoria vale pela idade NO DIA DO EVENTO, não pela de hoje: quem faz
+  // aniversário até lá compete na categoria nova — é assim que o valor da
+  // inscrição já é cobrado.
+  const eventoEm = getEventDate(getEventById(PADUA_EVENT_ID)!) ?? new Date()
+  const categoriaId = (l: Linha) =>
+    l.birthDate ? categoryFromBirthDate(l.birthDate, eventoEm).id : undefined
+
+  // No campeonato, até 9 anos tudo é Festival; daí para cima vale a categoria
+  // de idade.
+  const categoria = (l: Linha) => {
+    const id = categoriaId(l)
+    return id === undefined ? "—" : competitionCategoryLabel(id)
+  }
 
   /**
    * Categoria de peso pela tabela do sexo do atleta. Infantil e juvenil têm
@@ -298,7 +312,7 @@ export default function InscricoesPadua({
     weightClass({
       weight: l.weight,
       gender: l.gender,
-      ageCategoryId: l.birthDate ? categoryFromBirthDate(l.birthDate).id : undefined,
+      ageCategoryId: categoriaId(l),
     })
 
   return (
@@ -461,7 +475,7 @@ export default function InscricoesPadua({
                     <td style={td}>{categoria(l)}</td>
                     <td
                       style={td}
-                      title={l.weight && !classePeso(l) ? "Categoria infantil/juvenil: tabela de peso própria, ainda não cadastrada." : undefined}
+                      title={l.weight && !classePeso(l) ? "Sem categoria de peso: só Adulto e Master usam a tabela. Agrupe por peso na hora do chaveamento." : undefined}
                     >
                       {l.weight ? (
                         <>

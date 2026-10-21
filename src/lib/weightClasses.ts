@@ -5,8 +5,9 @@ import { CATEGORY_RANGES } from "./affiliateOptions"
  * IBJJF em 2026. O valor é o PESO MÁXIMO da categoria: quem bate exatamente o
  * limite ainda está nela; acima disso sobe para a próxima.
  *
- * As categorias infantis e juvenis têm tabela própria, que a Liga ainda não
- * cadastrou — por isso a classificação só vale do Adulto para cima.
+ * Abaixo do Adulto a Liga não usa tabela de peso: Festival (até 9 anos) e as
+ * categorias de 10 a 17 anos são agrupadas por peso na hora do chaveamento,
+ * então a classificação só vale do Adulto para cima.
  */
 export interface WeightClass {
   label: string
@@ -45,6 +46,28 @@ export const GENDER_FEMALE = 2
 /** Idade a partir da qual vale a tabela adulta (Adulto e Masters). */
 const MIN_ADULT_AGE = 18
 
+/**
+ * No campeonato, quem tem até 9 anos disputa o Festival: as três categorias
+ * de idade do cadastro (Pré-Mirim, Mirim e Infantil A) viram uma só, sem
+ * divisão de peso. Isso vale só no evento — a filiação e a carteirinha
+ * continuam com a categoria de idade de sempre.
+ */
+export const FESTIVAL_LABEL = "Festival"
+export const FESTIVAL_MAX_AGE = 9
+
+/** Esta categoria de idade compete no Festival? */
+export function isFestival(categoryId: number): boolean {
+  const faixa = CATEGORY_RANGES.find((c) => c.id === categoryId)
+  return !!faixa && faixa.max <= FESTIVAL_MAX_AGE
+}
+
+/** Nome da categoria como ela aparece no campeonato. */
+export function competitionCategoryLabel(categoryId: number): string {
+  const faixa = CATEGORY_RANGES.find((c) => c.id === categoryId)
+  if (!faixa) return "—"
+  return isFestival(categoryId) ? FESTIVAL_LABEL : faixa.label
+}
+
 /** A tabela adulta vale para esta categoria de idade? */
 export function hasAdultWeightTable(categoryId: number): boolean {
   const faixa = CATEGORY_RANGES.find((c) => c.id === categoryId)
@@ -69,7 +92,11 @@ export function weightClass(params: {
 }): string | null {
   const { weight, gender, ageCategoryId } = params
   if (!weight || !gender) return null
-  if (ageCategoryId !== undefined && !hasAdultWeightTable(ageCategoryId)) return null
+  // Sem a categoria de idade não dá para saber se o atleta compete no adulto:
+  // melhor não classificar do que chutar a tabela errada.
+  // Festival e as categorias de 10 a 17 anos não têm tabela: ficam só com o
+  // peso declarado, que a organização usa para agrupar no dia.
+  if (ageCategoryId === undefined || !hasAdultWeightTable(ageCategoryId)) return null
 
   const tabela = weightClassesFor(gender)
   if (!tabela) return null
@@ -77,3 +104,4 @@ export function weightClass(params: {
   const faixa = tabela.find((c) => c.max === null || weight <= c.max)
   return faixa?.label ?? null
 }
+

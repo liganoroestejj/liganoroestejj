@@ -55,13 +55,18 @@ export const CATEGORY_RANGES: { id: number; label: string; min: number; max: num
   { id: 14, label: "Master 6", min: 56, max: 200 },
 ]
 
-/** Idade em anos a partir de uma data ISO (yyyy-mm-dd). */
-export function ageFromBirthDate(iso: string): number {
-  const birth = new Date(iso)
-  const today = new Date()
-  let age = today.getFullYear() - birth.getFullYear()
-  const m = today.getMonth() - birth.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+/**
+ * Idade em anos a partir de uma data ISO (yyyy-mm-dd).
+ * A data é lida pelos componentes, e não por `new Date(iso)`: a string é
+ * interpretada como UTC e, no fuso do Brasil, cairia no dia anterior — o
+ * atleta "fazia aniversário" um dia antes e podia mudar de categoria cedo.
+ */
+export function ageFromBirthDate(iso: string, hoje = new Date()): number {
+  const [ano, mes, dia] = iso.split("-").map(Number)
+  if (!ano || !mes || !dia) return 0
+  let age = hoje.getFullYear() - ano
+  const m = hoje.getMonth() + 1 - mes
+  if (m < 0 || (m === 0 && hoje.getDate() < dia)) age--
   return age
 }
 
@@ -70,9 +75,13 @@ export function categoryLabelById(id: number): string {
   return CATEGORY_RANGES.find((c) => c.id === id)?.label ?? "—"
 }
 
-/** Categoria (id + label) calculada pela data de nascimento. */
-export function categoryFromBirthDate(iso: string) {
-  const age = ageFromBirthDate(iso)
+/**
+ * Categoria (id + label) calculada pela data de nascimento. `emDate` permite
+ * perguntar a categoria em outra data — no campeonato vale a idade no dia do
+ * evento, não a de hoje.
+ */
+export function categoryFromBirthDate(iso: string, emDate = new Date()) {
+  const age = ageFromBirthDate(iso, emDate)
   const match = CATEGORY_RANGES.find((c) => age >= c.min && age <= c.max)
   if (match) return match
   // Fora das faixas: abaixo da mínima → primeira; acima → última.

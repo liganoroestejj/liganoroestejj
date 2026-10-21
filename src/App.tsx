@@ -7,6 +7,7 @@ import Atletas from "./pages/Atletas"
 import Fotos from "./pages/Fotos"
 import Evento from "./pages/Evento"
 import Inscricao from "./pages/inscricao/Inscricao"
+import Regulamento from "./pages/Regulamento"
 import Login from "./pages/auth/Login"
 import Cadastro from "./pages/auth/Cadastro"
 import AuthAction from "./pages/auth/AuthAction"
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/fotos" element={<Fotos />} />
         <Route path="/evento/:id" element={<Evento />} />
         <Route path="/evento/:id/inscricao" element={<Inscricao />} />
+        <Route path="/evento/:id/regulamento" element={<Regulamento />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/auth/action" element={<AuthAction />} />

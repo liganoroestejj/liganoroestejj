@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom"
 import HeaderMobile from "../../components/home/Header/Header.mobile"
 import { getEventById, getEventStatus } from "../../data/events"
+import { getRegulamentoByEventId } from "../../data/regulamentos"
 
 export default function EventoMobile() {
   const { id } = useParams()
@@ -34,6 +35,14 @@ export default function EventoMobile() {
                 style={{ width: "100%", textAlign: "center", background: "#F0B90B", color: "#0A0A0A", fontSize: 13, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "13px 24px", borderRadius: 5, marginBottom: 22, boxSizing: "border-box" }}
               >
                 Inscrever-se
+              </Link>
+            )}
+            {getRegulamentoByEventId(evento.id) && (
+              <Link
+                to={`/evento/${evento.id}/regulamento`}
+                style={{ width: "100%", textAlign: "center", background: "transparent", color: "#F0B90B", border: "1px solid #F0B90B", fontSize: 13, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "12px 24px", borderRadius: 5, marginBottom: 22, boxSizing: "border-box" }}
+              >
+                Regulamento
               </Link>
             )}
             <img

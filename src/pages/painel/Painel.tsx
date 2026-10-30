@@ -477,9 +477,10 @@ export default function Painel() {
 
             {/* Resumo da inscrição na etapa — leva à tela com o status completo */}
             {inscricao && inscricao.status !== "removed" && eventoPadua && (
+              <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, marginBottom: 28, overflow: "hidden" }}>
               <Link
                 to={`/evento/${PADUA_EVENT_ID}/inscricao`}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", background: "#111", border: "1px solid #222", borderRadius: 8, padding: "18px 24px", marginBottom: 28, textDecoration: "none" }}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "18px 24px", textDecoration: "none" }}
               >
                 <div>
                   <div style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>{eventoPadua.title}</div>
@@ -494,6 +495,19 @@ export default function Painel() {
                   <span style={{ color: "#F0B90B", fontSize: 18 }}>›</span>
                 </div>
               </Link>
+              {/* Inscrição paga libera a lista dos outros inscritos confirmados.
+                  Fica dentro do card do evento para não parecer outra coisa. */}
+              {inscricao.status === "paid" && (
+                <div style={{ borderTop: "1px solid #1e1e1e", padding: "14px 24px 18px" }}>
+                  <Link
+                    to={`/evento/${PADUA_EVENT_ID}/inscritos`}
+                    style={{ display: "block", textAlign: "center", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "11px 20px", borderRadius: 5 }}
+                  >
+                    Ver inscritos confirmados
+                  </Link>
+                </div>
+              )}
+              </div>
             )}
 
             {/* Carteirinha digital — liberada após o 1º pagamento confirmado */}

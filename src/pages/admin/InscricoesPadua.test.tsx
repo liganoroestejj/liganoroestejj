@@ -16,6 +16,15 @@ jest.mock("../../lib/registrations", () => ({
   reactivateRegistration: (...a: unknown[]) => mockReactivate(...a),
 }))
 
+// Publicação da lista de inscritos pagos: a montagem da lista é testada em
+// lib/participants; aqui só importa QUANDO a tela publica e com quais dados.
+const mockExpected = jest.fn()
+const mockSync = jest.fn()
+jest.mock("../../lib/participants", () => ({
+  expectedParticipants: (...a: unknown[]) => mockExpected(...a),
+  syncParticipants: (...a: unknown[]) => mockSync(...a),
+}))
+
 const academies = [
   { id: 1, name: "UP BJJ / Itaocara" },
   { id: 2, name: "Gracie Barra / Pádua" },
@@ -56,6 +65,8 @@ beforeEach(() => {
   mockSetPaid.mockResolvedValue(undefined)
   mockRemove.mockResolvedValue(undefined)
   mockReactivate.mockResolvedValue(undefined)
+  mockExpected.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status === "paid").map((r) => r.cpf))
+  mockSync.mockResolvedValue(undefined)
 })
 
 describe("Inscrições — carregamento", () => {
@@ -314,6 +325,67 @@ describe("Inscrições — pagamento", () => {
     fireEvent.click(within(linha).getByRole("button", { name: /marcar pago/i }))
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
     expect(await screen.findByText(/não foi possível atualizar o pagamento de bruno lima/i)).toBeInTheDocument()
+  })
+})
+
+describe("Inscrições — lista pública dos inscritos pagos", () => {
+  it("publica os pagos ao carregar, com as inscrições e os filiados", async () => {
+    renderLista()
+    await aguardarLista()
+    await waitFor(() => expect(mockSync).toHaveBeenCalledWith(["11111111111"]))
+    expect(mockExpected).toHaveBeenLastCalledWith(
+      expect.arrayContaining([expect.objectContaining({ cpf: "11111111111" })]),
+      filiados,
+      expect.any(Date),
+    )
+  })
+
+  it("republica ao confirmar um pagamento", async () => {
+    renderLista()
+    await aguardarLista()
+    const linha = screen.getByText("Bruno Lima").closest("tr") as HTMLElement
+    fireEvent.click(within(linha).getByRole("button", { name: /marcar pago/i }))
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+    await waitFor(() => expect(mockSync).toHaveBeenLastCalledWith(["11111111111", "22222222222"]))
+  })
+
+  it("republica ao remover uma inscrição paga", async () => {
+    renderLista()
+    await aguardarLista()
+    const linha = screen.getByText("Ana Resende").closest("tr") as HTMLElement
+    fireEvent.click(within(linha).getByRole("button", { name: "Ações" }))
+    fireEvent.click(screen.getByText("Remover inscrição"))
+    fireEvent.click(screen.getByRole("button", { name: "Remover" }))
+    await waitFor(() => expect(mockSync).toHaveBeenLastCalledWith([]))
+  })
+
+  it("não publica enquanto carrega (apagaria a lista)", () => {
+    mockList.mockReturnValue(new Promise(() => {}))
+    renderLista()
+    expect(mockSync).not.toHaveBeenCalled()
+  })
+
+  it("não publica se a listagem falhou", async () => {
+    mockList.mockRejectedValue(new Error("sem permissão"))
+    renderLista()
+    await screen.findByText("Não foi possível carregar as inscrições.")
+    expect(mockSync).not.toHaveBeenCalled()
+  })
+
+  it("não publica sem os filiados carregados", async () => {
+    render(<InscricoesPadua affiliates={[]} academies={academies} academyName={academyName} isMobile={false} />)
+    await screen.findAllByText("Filiação removida")
+    expect(mockSync).not.toHaveBeenCalled()
+  })
+
+  it("uma falha ao publicar não aparece para o admin", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {})
+    mockSync.mockRejectedValue(new Error("offline"))
+    renderLista()
+    await aguardarLista()
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect(screen.queryByText(/não foi possível/i)).toBeNull()
+    spy.mockRestore()
   })
 })
 

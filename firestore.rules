@@ -112,6 +112,22 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Lista de inscritos pagos do Open Pádua, vista pelos próprios inscritos.
+    // O id do doc é o uid do atleta e o conteúdo é só o que pode circular
+    // entre atletas (nome, academia, faixa, categoria, idade) — sem CPF nem
+    // contato. Quem publica é o admin, ao confirmar o pagamento: existir um
+    // doc com o seu uid aqui é o que libera a leitura da lista.
+    match /paduaParticipants/{uid} {
+      allow get: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid)
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid)));
+      allow list: if isAdmin()
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid)));
+      allow write: if isAdmin();
+    }
+
     // Academias — leitura pública, escrita só admin.
     match /academies/{id} {
       allow read: if true;

@@ -8,6 +8,7 @@ import Fotos from "./pages/Fotos"
 import Evento from "./pages/Evento"
 import Inscricao from "./pages/inscricao/Inscricao"
 import Regulamento from "./pages/Regulamento"
+import Inscritos from "./pages/Inscritos"
 import Login from "./pages/auth/Login"
 import Cadastro from "./pages/auth/Cadastro"
 import AuthAction from "./pages/auth/AuthAction"
@@ -33,6 +34,14 @@ export default function App() {
         <Route path="/evento/:id" element={<Evento />} />
         <Route path="/evento/:id/inscricao" element={<Inscricao />} />
         <Route path="/evento/:id/regulamento" element={<Regulamento />} />
+        <Route
+          path="/evento/:id/inscritos"
+          element={
+            <ProtectedRoute>
+              <Inscritos />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/auth/action" element={<AuthAction />} />

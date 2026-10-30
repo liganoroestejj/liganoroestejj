@@ -31,6 +31,12 @@ jest.mock("../../lib/registrations", () => ({
 const mockAddAcademy = jest.fn()
 const mockRemoveAcademy = jest.fn()
 const mockRenameAcademy = jest.fn()
+// A publicação da lista de inscritos é coberta no teste de InscricoesPadua.
+jest.mock("../../lib/participants", () => ({
+  expectedParticipants: () => [],
+  syncParticipants: () => Promise.resolve(),
+}))
+
 jest.mock("../../lib/academies", () => ({
   addAcademy: (...a: unknown[]) => mockAddAcademy(...a),
   removeAcademy: (...a: unknown[]) => mockRemoveAcademy(...a),

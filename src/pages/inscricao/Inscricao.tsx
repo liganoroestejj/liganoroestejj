@@ -416,9 +416,17 @@ export default function Inscricao() {
         </div>
 
         {paga ? (
-          <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.4)", color: "#4ade80", fontSize: 13, padding: "10px 14px", borderRadius: 6 }}>
-            Pagamento confirmado pela organização. Sua vaga está garantida.
-          </div>
+          <>
+            <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.4)", color: "#4ade80", fontSize: 13, padding: "10px 14px", borderRadius: 6, marginBottom: 18 }}>
+              Pagamento confirmado pela organização. Sua vaga está garantida.
+            </div>
+            <Link
+              to={`/evento/${evento.id}/inscritos`}
+              style={{ ...s.button, display: "block", textAlign: "center", textDecoration: "none" }}
+            >
+              Ver inscritos confirmados
+            </Link>
+          </>
         ) : (
           <>
             <div style={avisoBox}>

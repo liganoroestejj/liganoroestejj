@@ -1,18 +1,17 @@
-import { collection, doc, getDoc, getDocs, writeBatch } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where, writeBatch } from "firebase/firestore"
 import { db } from "./firebase"
 import { categoryFromBirthDate } from "./affiliateOptions"
-import { ageOnDate, type Registration } from "./registrations"
+import { ageOnDate, getRegistration, type Registration } from "./registrations"
 import { competitionCategoryLabel, weightClass } from "./weightClasses"
 
 /**
- * Lista de inscritos com pagamento confirmado no Open Pádua, visível para os
- * próprios inscritos pagos. Filiações e inscrições são privadas (só o dono e o
+ * Lista de inscritos com pagamento confirmado no Open Pádua, visível para
+ * qualquer atleta inscrito (pago ou pendente). Filiações e inscrições são privadas (só o dono e o
  * admin leem, e o id delas é o CPF), então quem monta esta lista é o admin: ao
  * abrir a aba de inscrições, ele publica aqui só o que pode ser mostrado entre
  * atletas — sem CPF, sem contato, sem data de nascimento.
  *
- * O id do doc é o uid do atleta: é assim que a regra do Firestore sabe se
- * quem está lendo também é um inscrito pago.
+ * O id do doc é o uid do atleta. Quem pode ler é decidido por PADUA_VIEWERS.
  */
 export const PADUA_PARTICIPANTS = "paduaParticipants"
 
@@ -77,13 +76,55 @@ export function expectedParticipants(
   })
 }
 
+/**
+ * Quem pode VER a lista: qualquer atleta inscrito, pago ou não (removido não).
+ * A regra do Firestore só conhece o uid de quem lê, e a inscrição é guardada
+ * pelo CPF — este doc, com id = uid, é a ponte. Só o dono e o admin leem.
+ */
+export const PADUA_VIEWERS = "paduaViewers"
+
+export interface Viewer {
+  uid: string
+  cpf: string
+}
+
+/** Quem pode ver a lista: inscrição não removida cuja filiação ainda existe. */
+export function expectedViewers(regs: Registration[], affiliates: AffiliateInfo[]): Viewer[] {
+  const porCpf = new Map(affiliates.map((a) => [a.cpf, a]))
+  return regs.flatMap((r) => {
+    const a = porCpf.get(r.cpf)
+    return r.status !== "removed" && a ? [{ uid: a.uid || r.uid, cpf: r.cpf }] : []
+  })
+}
+
+/** O atleta logado já está liberado para ver a lista? */
+export async function isViewer(uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, PADUA_VIEWERS, uid))
+  return snap.exists()
+}
+
+/**
+ * Libera a lista para o próprio atleta, se ele tiver inscrição ativa. Assim
+ * quem acabou de se inscrever não depende do admin abrir a aba de inscrições.
+ * A regra do Firestore confere a inscrição antes de aceitar.
+ */
+export async function ensureViewer(uid: string): Promise<boolean> {
+  const snap = await getDocs(query(collection(db, "affiliates"), where("uid", "==", uid), limit(1)))
+  if (snap.empty) return false
+  const cpf = (snap.docs[0].data() as { cpf: string }).cpf
+  const reg = await getRegistration(cpf)
+  if (!reg || reg.status === "removed") return false
+  await setDoc(doc(db, PADUA_VIEWERS, uid), { uid, cpf })
+  return true
+}
+
 /** O inscrito logado está na lista (inscrição paga)? */
 export async function isParticipant(uid: string): Promise<boolean> {
   const snap = await getDoc(doc(db, PADUA_PARTICIPANTS, uid))
   return snap.exists()
 }
 
-/** Todos os inscritos pagos — só um inscrito pago (ou o admin) consegue listar. */
+/** Todos os inscritos pagos — só um inscrito (ou o admin) consegue listar. */
 export async function listParticipants(): Promise<Participant[]> {
   const snap = await getDocs(collection(db, PADUA_PARTICIPANTS))
   return snap.docs.map((d) => d.data() as Participant)
@@ -109,6 +150,31 @@ export async function syncParticipants(expected: Participant[]): Promise<void> {
   }
   for (const uid of atuais.keys()) {
     if (!esperados.has(uid)) ops.push((b) => b.delete(doc(db, PADUA_PARTICIPANTS, uid)))
+  }
+
+  for (let i = 0; i < ops.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    ops.slice(i, i + BATCH_LIMIT).forEach((op) => op(batch))
+    await batch.commit()
+  }
+}
+
+/**
+ * Mesma ideia de syncParticipants para quem pode ver a lista (ação do admin):
+ * libera quem se inscreveu e tira quem teve a inscrição removida.
+ */
+export async function syncViewers(expected: Viewer[]): Promise<void> {
+  const snap = await getDocs(collection(db, PADUA_VIEWERS))
+  const atuais = new Map(snap.docs.map((d) => [d.id, d.data() as Viewer]))
+  const esperados = new Map(expected.map((v) => [v.uid, v]))
+
+  const ops: ((b: ReturnType<typeof writeBatch>) => void)[] = []
+  for (const v of esperados.values()) {
+    const atual = atuais.get(v.uid)
+    if (!atual || atual.cpf !== v.cpf) ops.push((b) => b.set(doc(db, PADUA_VIEWERS, v.uid), v))
+  }
+  for (const uid of atuais.keys()) {
+    if (!esperados.has(uid)) ops.push((b) => b.delete(doc(db, PADUA_VIEWERS, uid)))
   }
 
   for (let i = 0; i < ops.length; i += BATCH_LIMIT) {

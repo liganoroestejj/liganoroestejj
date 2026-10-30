@@ -20,9 +20,13 @@ jest.mock("../../lib/registrations", () => ({
 // lib/participants; aqui só importa QUANDO a tela publica e com quais dados.
 const mockExpected = jest.fn()
 const mockSync = jest.fn()
+const mockExpectedViewers = jest.fn()
+const mockSyncViewers = jest.fn()
 jest.mock("../../lib/participants", () => ({
   expectedParticipants: (...a: unknown[]) => mockExpected(...a),
   syncParticipants: (...a: unknown[]) => mockSync(...a),
+  expectedViewers: (...a: unknown[]) => mockExpectedViewers(...a),
+  syncViewers: (...a: unknown[]) => mockSyncViewers(...a),
 }))
 
 const academies = [
@@ -67,6 +71,8 @@ beforeEach(() => {
   mockReactivate.mockResolvedValue(undefined)
   mockExpected.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status === "paid").map((r) => r.cpf))
   mockSync.mockResolvedValue(undefined)
+  mockExpectedViewers.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status !== "removed").map((r) => r.cpf))
+  mockSyncViewers.mockResolvedValue(undefined)
 })
 
 describe("Inscrições — carregamento", () => {
@@ -340,6 +346,23 @@ describe("Inscrições — lista pública dos inscritos pagos", () => {
     )
   })
 
+  it("libera a lista para todo inscrito não removido, pago ou pendente", async () => {
+    renderLista()
+    await aguardarLista()
+    await waitFor(() => expect(mockSyncViewers).toHaveBeenCalledWith(["11111111111", "22222222222", "33333333333"]))
+    expect(mockExpectedViewers).toHaveBeenLastCalledWith(expect.any(Array), filiados)
+  })
+
+  it("tira da lista de quem pode ver ao remover a inscrição", async () => {
+    renderLista()
+    await aguardarLista()
+    const linha = screen.getByText("Bruno Lima").closest("tr") as HTMLElement
+    fireEvent.click(within(linha).getByRole("button", { name: "Ações" }))
+    fireEvent.click(screen.getByText("Remover inscrição"))
+    fireEvent.click(screen.getByRole("button", { name: "Remover" }))
+    await waitFor(() => expect(mockSyncViewers).toHaveBeenLastCalledWith(["11111111111", "33333333333"]))
+  })
+
   it("republica ao confirmar um pagamento", async () => {
     renderLista()
     await aguardarLista()
@@ -363,6 +386,7 @@ describe("Inscrições — lista pública dos inscritos pagos", () => {
     mockList.mockReturnValue(new Promise(() => {}))
     renderLista()
     expect(mockSync).not.toHaveBeenCalled()
+    expect(mockSyncViewers).not.toHaveBeenCalled()
   })
 
   it("não publica se a listagem falhou", async () => {

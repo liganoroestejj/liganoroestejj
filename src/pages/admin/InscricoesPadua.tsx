@@ -13,7 +13,7 @@ import {
   setRegistrationPaid,
   type Registration,
 } from "../../lib/registrations"
-import { expectedParticipants, syncParticipants } from "../../lib/participants"
+import { expectedParticipants, expectedViewers, syncParticipants, syncViewers } from "../../lib/participants"
 import { formatTs, Paginacao, STATUS, td, th } from "./adminShared"
 
 /** Inscrição já cruzada com a filiação (dados sempre atuais, buscados pelo CPF). */
@@ -73,8 +73,9 @@ export default function InscricoesPadua({
     return () => { ativo = false }
   }, [])
 
-  // A lista de inscritos que os atletas pagos veem é publicada daqui: o admin
-  // é o único que lê filiações e inscrições. Roda ao carregar e a cada
+  // A lista de inscritos pagos (e quem pode vê-la: todo inscrito não
+  // removido) é publicada daqui: o admin é o único que lê filiações e
+  // inscrições. Roda ao carregar e a cada
   // pagamento/remoção, gravando só o que mudou. Uma falha não trava a tela do
   // admin — a próxima abertura tenta de novo.
   useEffect(() => {
@@ -82,7 +83,10 @@ export default function InscricoesPadua({
     // lista calculada sairia vazia e a sincronização apagaria todo mundo.
     if (carregando || erro || affiliates.length === 0) return
     const eventoEm = getEventDate(getEventById(PADUA_EVENT_ID)!) ?? new Date()
-    syncParticipants(expectedParticipants(rows, affiliates, eventoEm)).catch((err) => {
+    Promise.all([
+      syncParticipants(expectedParticipants(rows, affiliates, eventoEm)),
+      syncViewers(expectedViewers(rows, affiliates)),
+    ]).catch((err) => {
       console.error("[inscricoes] falha ao publicar a lista de inscritos:", err)
     })
   }, [rows, affiliates, carregando, erro])

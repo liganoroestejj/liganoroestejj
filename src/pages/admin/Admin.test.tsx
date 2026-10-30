@@ -35,6 +35,8 @@ const mockRenameAcademy = jest.fn()
 jest.mock("../../lib/participants", () => ({
   expectedParticipants: () => [],
   syncParticipants: () => Promise.resolve(),
+  expectedViewers: () => [],
+  syncViewers: () => Promise.resolve(),
 }))
 
 jest.mock("../../lib/academies", () => ({

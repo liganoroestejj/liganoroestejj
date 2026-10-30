@@ -81,11 +81,11 @@ describe.each([
       expect(screen.getByText("Não foi possível carregar a lista de inscritos.")).toBeInTheDocument()
     })
 
-    it("bloqueia quem não tem inscrição paga e leva à inscrição", () => {
+    it("bloqueia quem não está inscrito e leva à inscrição", () => {
       mockUseParticipants.mockReturnValue({ ...pronto([]), liberado: false })
       renderAt(ui())
       expect(screen.getByText(/exclusiva de quem já está inscrito/)).toBeInTheDocument()
-      expect(screen.getByText("Ver minha inscrição").closest("a")).toHaveAttribute("href", "/evento/2/inscricao")
+      expect(screen.getByText("Fazer minha inscrição").closest("a")).toHaveAttribute("href", "/evento/2/inscricao")
       expect(screen.queryByText("Ana Resende")).toBeNull()
     })
 

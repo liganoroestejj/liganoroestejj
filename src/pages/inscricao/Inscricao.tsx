@@ -441,6 +441,12 @@ export default function Inscricao() {
             >
               Pagar pelo WhatsApp
             </a>
+            <Link
+              to={`/evento/${evento.id}/inscritos`}
+              style={{ display: "block", textAlign: "center", textDecoration: "none", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", padding: "12px 20px", borderRadius: 5, marginTop: 12 }}
+            >
+              Ver inscritos confirmados
+            </Link>
           </>
         )}
 

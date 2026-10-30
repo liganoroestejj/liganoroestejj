@@ -1,9 +1,16 @@
 import {
-  ageOptions, buildParticipant, categoryOptions, expectedParticipants, isParticipant,
-  listParticipants, sortParticipants, syncParticipants, type Participant,
+  ageOptions, buildParticipant, categoryOptions, ensureViewer, expectedParticipants, expectedViewers,
+  isParticipant, isViewer, listParticipants, sortParticipants, syncParticipants, syncViewers,
+  type Participant,
 } from "./participants"
 import type { Registration } from "./registrations"
-import { doc, getDoc, getDocs, writeBatch } from "firebase/firestore"
+import { doc, getDoc, getDocs, setDoc, writeBatch } from "firebase/firestore"
+
+const mockGetRegistration = jest.fn()
+jest.mock("./registrations", () => ({
+  ...jest.requireActual("./registrations"),
+  getRegistration: (...a: unknown[]) => mockGetRegistration(...a),
+}))
 
 jest.mock("./firebase", () => ({ db: {} }))
 jest.mock("firebase/firestore", () => ({
@@ -15,6 +22,9 @@ jest.mock("firebase/firestore", () => ({
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   writeBatch: jest.fn(),
+  limit: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
 }))
 
 // Dia do Open Pádua: 08/11/2026.
@@ -140,6 +150,69 @@ describe("syncParticipants", () => {
     const muitos = Array.from({ length: 501 }, (_, i) => participante({ uid: `u${i}` }))
     await syncParticipants(muitos)
     expect(batch.commit).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("quem pode ver a lista (paduaViewers)", () => {
+  it("todo inscrito não removido com filiação, pago ou pendente", () => {
+    const lista = expectedViewers(
+      [reg("1", "paid"), reg("2", "pending"), reg("3", "removed"), reg("4", "paid")],
+      [filiado("1", undefined), filiado("2", undefined), filiado("3", undefined)],
+    )
+    expect(lista).toEqual([{ uid: "u-1", cpf: "1" }, { uid: "u-2", cpf: "2" }])
+  })
+
+  it("isViewer lê o doc do próprio uid", async () => {
+    ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => true })
+    expect(await isViewer("u-1")).toBe(true)
+    expect(doc).toHaveBeenCalledWith({}, "paduaViewers", "u-1")
+  })
+
+  describe("ensureViewer", () => {
+    const comFiliacao = () =>
+      (getDocs as jest.Mock).mockResolvedValue({ empty: false, docs: [{ data: () => ({ cpf: "111" }) }] })
+
+    it("inscrição pendente libera o próprio atleta", async () => {
+      comFiliacao()
+      mockGetRegistration.mockResolvedValue(reg("111", "pending"))
+      expect(await ensureViewer("u-1")).toBe(true)
+      expect(setDoc).toHaveBeenCalledWith("paduaViewers/u-1", { uid: "u-1", cpf: "111" })
+    })
+
+    it("sem filiação não libera", async () => {
+      ;(getDocs as jest.Mock).mockResolvedValue({ empty: true, docs: [] })
+      expect(await ensureViewer("u-1")).toBe(false)
+      expect(setDoc).not.toHaveBeenCalled()
+    })
+
+    it("sem inscrição não libera", async () => {
+      comFiliacao()
+      mockGetRegistration.mockResolvedValue(null)
+      expect(await ensureViewer("u-1")).toBe(false)
+      expect(setDoc).not.toHaveBeenCalled()
+    })
+
+    it("inscrição removida não libera", async () => {
+      comFiliacao()
+      mockGetRegistration.mockResolvedValue(reg("111", "removed"))
+      expect(await ensureViewer("u-1")).toBe(false)
+      expect(setDoc).not.toHaveBeenCalled()
+    })
+  })
+
+  it("syncViewers libera os novos e tira os removidos", async () => {
+    ;(getDocs as jest.Mock).mockResolvedValue({
+      docs: [
+        { id: "fica", data: () => ({ uid: "fica", cpf: "1" }) },
+        { id: "sai", data: () => ({ uid: "sai", cpf: "2" }) },
+      ],
+    })
+    const batch = { set: jest.fn(), delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) }
+    ;(writeBatch as jest.Mock).mockReturnValue(batch)
+    await syncViewers([{ uid: "fica", cpf: "1" }, { uid: "novo", cpf: "3" }])
+    expect(batch.set).toHaveBeenCalledTimes(1)
+    expect(batch.set).toHaveBeenCalledWith("paduaViewers/novo", { uid: "novo", cpf: "3" })
+    expect(batch.delete).toHaveBeenCalledWith("paduaViewers/sai")
   })
 })
 

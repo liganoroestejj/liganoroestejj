@@ -112,20 +112,33 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Lista de inscritos pagos do Open Pádua, vista pelos próprios inscritos.
-    // O id do doc é o uid do atleta e o conteúdo é só o que pode circular
-    // entre atletas (nome, academia, faixa, categoria, idade) — sem CPF nem
-    // contato. Quem publica é o admin, ao confirmar o pagamento: existir um
-    // doc com o seu uid aqui é o que libera a leitura da lista.
+    // Lista de inscritos pagos do Open Pádua, vista por qualquer inscrito
+    // (pago ou pendente). O id do doc é o uid do atleta e o conteúdo é só o
+    // que pode circular entre atletas (nome, academia, faixa, categoria,
+    // idade) — sem CPF nem contato. Quem publica é o admin.
     match /paduaParticipants/{uid} {
-      allow get: if isAdmin()
-        || (request.auth != null && request.auth.uid == uid)
+      allow read: if isAdmin()
         || (request.auth != null
-            && exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid)));
-      allow list: if isAdmin()
-        || (request.auth != null
-            && exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid)));
+            && (exists(/databases/$(database)/documents/paduaViewers/$(request.auth.uid))
+                || exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid))));
       allow write: if isAdmin();
+    }
+
+    // Quem pode ver a lista acima: um doc por atleta inscrito (id = uid,
+    // guarda o CPF da inscrição). A regra só conhece o uid de quem lê e a
+    // inscrição é guardada pelo CPF — este doc é a ponte. O próprio atleta
+    // se libera, desde que a inscrição dele exista e não esteja removida; o
+    // admin mantém em dia (e tira quem foi removido).
+    match /paduaViewers/{uid} {
+      allow get: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'cpf'])
+        && request.resource.data.uid == uid
+        && get(/databases/$(database)/documents/paduaRegistrations/$(request.resource.data.cpf)).data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/paduaRegistrations/$(request.resource.data.cpf)).data.status in ['pending', 'paid'];
+      allow update, delete: if isAdmin();
     }
 
     // Academias — leitura pública, escrita só admin.

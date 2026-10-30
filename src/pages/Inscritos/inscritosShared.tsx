@@ -82,11 +82,11 @@ export function estadoDaTela(st: InscritosState): React.ReactNode {
   if (!st.liberado) {
     return (
       <div style={caixa}>
-        A lista de inscritos é exclusiva de quem já está inscrito no campeonato
-        com o pagamento confirmado.
+        A lista de inscritos é exclusiva de quem já está inscrito no
+        campeonato.
         <div style={{ marginTop: 16 }}>
           <Link to={`/evento/${st.evento.id}/inscricao`} style={{ color: "#F0B90B", fontWeight: 700 }}>
-            Ver minha inscrição
+            Fazer minha inscrição
           </Link>
         </div>
       </div>

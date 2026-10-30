@@ -495,18 +495,17 @@ export default function Painel() {
                   <span style={{ color: "#F0B90B", fontSize: 18 }}>›</span>
                 </div>
               </Link>
-              {/* Inscrição paga libera a lista dos outros inscritos confirmados.
-                  Fica dentro do card do evento para não parecer outra coisa. */}
-              {inscricao.status === "paid" && (
-                <div style={{ borderTop: "1px solid #1e1e1e", padding: "14px 24px 18px" }}>
-                  <Link
-                    to={`/evento/${PADUA_EVENT_ID}/inscritos`}
-                    style={{ display: "block", textAlign: "center", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "11px 20px", borderRadius: 5 }}
-                  >
-                    Ver inscritos confirmados
-                  </Link>
-                </div>
-              )}
+              {/* Estar inscrito (pago ou não) libera a lista dos inscritos
+                  confirmados. Fica dentro do card do evento para não parecer
+                  outra coisa. */}
+              <div style={{ borderTop: "1px solid #1e1e1e", padding: "14px 24px 18px" }}>
+                <Link
+                  to={`/evento/${PADUA_EVENT_ID}/inscritos`}
+                  style={{ display: "block", textAlign: "center", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "11px 20px", borderRadius: 5 }}
+                >
+                  Ver inscritos confirmados
+                </Link>
+              </div>
               </div>
             )}
 

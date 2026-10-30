@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import HeaderMobile from "../../components/home/Header/Header.mobile"
+import { BELT_LABELS, GENDER_LABELS } from "../../lib/affiliateOptions"
 import { useInscritos } from "./useInscritos"
 import { estadoDaTela, Filtros, Resumo } from "./inscritosShared"
 
@@ -36,6 +37,15 @@ export default function InscritosMobile() {
                       <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.fullName}</div>
                       <div style={{ color: "#888", fontSize: 12, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {st.academyName(p.academyId)}
+                      </div>
+                      <div style={{ color: "#bbb", fontSize: 12, marginTop: 6 }}>
+                        {[
+                          p.category,
+                          p.age !== null ? `${p.age} anos` : null,
+                          BELT_LABELS[p.belt],
+                          p.gender ? GENDER_LABELS[p.gender] : null,
+                          p.weightClass,
+                        ].filter(Boolean).join(" · ")}
                       </div>
                     </div>
                   </div>

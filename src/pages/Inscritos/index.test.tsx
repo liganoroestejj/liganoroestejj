@@ -127,15 +127,14 @@ describe.each([
       expect(textos).toEqual(["Caio Souza", "Bruno Lima", "Dani Costa", "Edu Alves", "Ana Resende"])
     })
 
-    it("mostra só nome e academia de cada inscrito", () => {
+    it("mostra academia, categoria, idade, faixa, sexo e categoria de peso", () => {
       renderAt(ui())
-      expect(screen.getAllByText("UP BJJ / Itaocara")).toHaveLength(3)
-      expect(screen.getAllByText("Gracie Barra / Pádua")).toHaveLength(2)
-      // Faixa, sexo, idade e categoria de peso não aparecem.
-      expect(screen.queryByText(/Preta/)).toBeNull()
-      expect(screen.queryByText(/Feminino/)).toBeNull()
-      expect(screen.queryByText(/Pluma/)).toBeNull()
-      expect(screen.queryByText("36")).toBeNull()
+      expect(screen.getAllByText(/UP BJJ \/ Itaocara/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Master 2/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/36/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Preta/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Feminino/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Pluma/).length).toBeGreaterThan(0)
     })
 
     it("não mostra CPF", () => {

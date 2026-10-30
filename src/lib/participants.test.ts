@@ -39,7 +39,7 @@ const filiado = (cpf: string, birthDate: string | undefined, extra: object = {})
 
 function participante(over: Partial<Participant>): Participant {
   return {
-    uid: "u", fullName: "X", academyId: 1, belt: 1, gender: 1, photoURL: null,
+    uid: "u", fullName: "X", academyId: 1, belt: 1, gender: 1,
     age: 20, categoryId: 8, category: "Adulto", weightClass: null, ...over,
   }
 }
@@ -81,7 +81,7 @@ describe("buildParticipant", () => {
     const p = buildParticipant(reg("1", "paid"), filiado("1", undefined), EVENTO)
     expect(p.age).toBeNull()
     expect(p.category).toBeNull()
-    expect(p.photoURL).toBeNull()
+    expect(p).not.toHaveProperty("photoURL")
     expect(Object.values(p)).not.toContain(undefined)
   })
 })
@@ -128,6 +128,13 @@ describe("syncParticipants", () => {
     expect(batch.set).toHaveBeenCalledWith("paduaParticipants/novo", novo)
     expect(batch.delete).toHaveBeenCalledWith("paduaParticipants/saiu")
     expect(batch.commit).toHaveBeenCalledTimes(1)
+  })
+
+  it("regrava doc antigo que ainda tem a foto, para tirá-la", async () => {
+    const p = participante({ uid: "a" })
+    const batch = prepara([{ ...p, photoURL: "foto.jpg" } as Participant])
+    await syncParticipants([p])
+    expect(batch.set).toHaveBeenCalledWith("paduaParticipants/a", p)
   })
 
   it("não grava nada quando já está em dia", async () => {
@@ -207,9 +214,9 @@ describe("quem pode ver a lista (paduaViewers)", () => {
       expect(setDoc).toHaveBeenCalledWith("paduaParticipants/eu", eu)
     })
 
-    it("atualiza a linha que mudou (ex.: trocou a foto)", async () => {
-      const antigo = participante({ uid: "eu", photoURL: null })
-      const eu = { ...antigo, photoURL: "nova.jpg" }
+    it("atualiza a linha que mudou (ex.: trocou de faixa)", async () => {
+      const antigo = participante({ uid: "eu", belt: 6 })
+      const eu = { ...antigo, belt: 7 }
       expect(await ensureListed(eu, [antigo])).toEqual([eu])
       expect(setDoc).toHaveBeenCalledWith("paduaParticipants/eu", eu)
     })

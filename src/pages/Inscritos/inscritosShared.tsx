@@ -13,16 +13,6 @@ const selectStyle = (ativo: boolean): React.CSSProperties => ({
   fontSize: 13, padding: "12px 38px 12px 14px", borderRadius: 6, outline: "none", cursor: "pointer",
 })
 
-export function Avatar({ src, size }: { src: string | null; size: number }) {
-  return (
-    <div style={{ width: size, height: size, borderRadius: 8, background: "#0A0A0A", border: "1px solid #333", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {src
-        ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        : <svg width={size / 2.2} height={size / 2.2} viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>}
-    </div>
-  )
-}
-
 /** Selects de categoria e idade. */
 export function Filtros({ st, isMobile }: { st: InscritosState; isMobile: boolean }) {
   const largura: React.CSSProperties = isMobile ? { width: "100%" } : { minWidth: 190 }

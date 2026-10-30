@@ -10,7 +10,7 @@ import { getEventById, getEventDate } from "../data/events"
  * visível para qualquer atleta inscrito. Filiações e inscrições são privadas
  * (só o dono e o admin leem, e o id delas é o CPF), então aqui fica só o que
  * pode ser mostrado entre atletas — sem CPF, sem contato, sem data de
- * nascimento.
+ * nascimento e sem foto.
  *
  * Duas fontes mantêm a lista: o próprio atleta publica a sua linha ao abrir a
  * lista (assim quem acabou de se inscrever já aparece), e o admin, ao abrir a
@@ -26,7 +26,6 @@ export interface Participant {
   academyId: number
   belt: number
   gender: number | null
-  photoURL: string | null
   /** Idade no dia do evento. */
   age: number | null
   /** Categoria de idade no dia do evento (id de CATEGORY_RANGES). */
@@ -45,7 +44,6 @@ interface AffiliateInfo {
   academyId: number
   belt: number
   gender?: number
-  photoURL?: string
   birthDate?: string
 }
 
@@ -60,7 +58,6 @@ export function buildParticipant(reg: Registration, a: AffiliateInfo, eventDate:
     academyId: a.academyId,
     belt: a.belt,
     gender: a.gender ?? null,
-    photoURL: a.photoURL ?? null,
     age: a.birthDate ? ageOnDate(a.birthDate, eventDate) : null,
     categoryId,
     category: categoryId === null ? null : competitionCategoryLabel(categoryId),
@@ -126,7 +123,7 @@ export async function prepareSelf(uid: string): Promise<Participant | null> {
 }
 
 /**
- * Garante que a linha do atleta está na lista e atualizada (nome, foto, faixa
+ * Garante que a linha do atleta está na lista e atualizada (nome, faixa, academia
  * que ele mudou no painel). Devolve a lista já com ela.
  */
 export async function ensureListed(eu: Participant, lista: Participant[]): Promise<Participant[]> {
@@ -206,11 +203,15 @@ export async function syncViewers(expected: Viewer[]): Promise<void> {
 }
 
 const CAMPOS: (keyof Participant)[] = [
-  "uid", "fullName", "academyId", "belt", "gender", "photoURL", "age", "categoryId", "category", "weightClass",
+  "uid", "fullName", "academyId", "belt", "gender", "age", "categoryId", "category", "weightClass",
 ]
 
+// Conta os campos também: um doc antigo com campo a mais (a foto, que saiu da
+// lista) é regravado e perde esse campo.
 function sameParticipant(a: Participant | undefined, b: Participant): boolean {
-  return !!a && CAMPOS.every((k) => (a[k] ?? null) === (b[k] ?? null))
+  return !!a
+    && Object.keys(a).length === CAMPOS.length
+    && CAMPOS.every((k) => (a[k] ?? null) === (b[k] ?? null))
 }
 
 /**

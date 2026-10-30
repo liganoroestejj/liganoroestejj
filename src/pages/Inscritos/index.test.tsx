@@ -27,7 +27,7 @@ jest.mock("../../hooks/useParticipants", () => ({
 jest.mock("../../lib/firebase", () => ({ db: {} }))
 
 const p = (over: Partial<Participant>): Participant => ({
-  uid: "x", fullName: "X", academyId: 1, belt: 1, gender: 1, photoURL: null,
+  uid: "x", fullName: "X", academyId: 1, belt: 1, gender: 1,
   age: 25, categoryId: 8, category: "Adulto", weightClass: null, ...over,
 })
 
@@ -127,17 +127,25 @@ describe.each([
       expect(textos).toEqual(["Caio Souza", "Bruno Lima", "Dani Costa", "Edu Alves", "Ana Resende"])
     })
 
-    it("mostra academia, categoria, idade, faixa e categoria de peso", () => {
+    it("mostra só nome e academia de cada inscrito", () => {
       renderAt(ui())
-      expect(screen.getAllByText(/UP BJJ \/ Itaocara/).length).toBeGreaterThan(0)
-      expect(screen.getAllByText(/Master 2/).length).toBeGreaterThan(0)
-      expect(screen.getAllByText(/Preta/).length).toBeGreaterThan(0)
-      expect(screen.getAllByText(/Pluma/).length).toBeGreaterThan(0)
+      expect(screen.getAllByText("UP BJJ / Itaocara")).toHaveLength(3)
+      expect(screen.getAllByText("Gracie Barra / Pádua")).toHaveLength(2)
+      // Faixa, sexo, idade e categoria de peso não aparecem.
+      expect(screen.queryByText(/Preta/)).toBeNull()
+      expect(screen.queryByText(/Feminino/)).toBeNull()
+      expect(screen.queryByText(/Pluma/)).toBeNull()
+      expect(screen.queryByText("36")).toBeNull()
     })
 
     it("não mostra CPF", () => {
       renderAt(ui())
       expect(screen.queryByText(/\d{3}\.\d{3}\.\d{3}-\d{2}/)).toBeNull()
+    })
+
+    it("não mostra foto", () => {
+      const { container } = renderAt(ui())
+      expect(container.querySelector("main section img")).toBeNull()
     })
 
     it("o voltar leva ao evento", () => {

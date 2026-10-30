@@ -1,63 +1,55 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { useParticipants } from "./useParticipants"
 
-const mockIsViewer = jest.fn()
-const mockEnsureViewer = jest.fn()
+const mockPrepareSelf = jest.fn()
+const mockEnsureListed = jest.fn()
 const mockList = jest.fn()
 jest.mock("../lib/participants", () => ({
-  isViewer: (...a: unknown[]) => mockIsViewer(...a),
-  ensureViewer: (...a: unknown[]) => mockEnsureViewer(...a),
+  prepareSelf: (...a: unknown[]) => mockPrepareSelf(...a),
+  ensureListed: (...a: unknown[]) => mockEnsureListed(...a),
   listParticipants: () => mockList(),
 }))
 
-const lista = [{ uid: "u1", fullName: "Ana" }]
+const eu = { uid: "u1", fullName: "Ana" }
+const outro = { uid: "u9", fullName: "Bia" }
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockIsViewer.mockResolvedValue(true)
-  mockEnsureViewer.mockResolvedValue(false)
-  mockList.mockResolvedValue(lista)
+  mockPrepareSelf.mockResolvedValue(eu)
+  mockList.mockResolvedValue([outro])
+  mockEnsureListed.mockImplementation(async (p: unknown, l: unknown[]) => [...l, p])
 })
 
 describe("useParticipants", () => {
   it("começa carregando", () => {
-    mockIsViewer.mockReturnValue(new Promise(() => {}))
+    mockPrepareSelf.mockReturnValue(new Promise(() => {}))
     const { result } = renderHook(() => useParticipants("u1"))
     expect(result.current.carregando).toBe(true)
   })
 
-  it("já liberado: traz a lista sem gravar nada", async () => {
+  it("inscrito (pago ou pendente): libera, entra na lista e a traz", async () => {
     const { result } = renderHook(() => useParticipants("u1"))
     await waitFor(() => expect(result.current.carregando).toBe(false))
-    expect(mockIsViewer).toHaveBeenCalledWith("u1")
-    expect(mockEnsureViewer).not.toHaveBeenCalled()
+    expect(mockPrepareSelf).toHaveBeenCalledWith("u1")
+    expect(mockEnsureListed).toHaveBeenCalledWith(eu, [outro])
     expect(result.current.liberado).toBe(true)
-    expect(result.current.participantes).toEqual(lista)
-  })
-
-  it("inscrito ainda não liberado (pago ou pendente): se libera e traz a lista", async () => {
-    mockIsViewer.mockResolvedValue(false)
-    mockEnsureViewer.mockResolvedValue(true)
-    const { result } = renderHook(() => useParticipants("u3"))
-    await waitFor(() => expect(result.current.carregando).toBe(false))
-    expect(mockEnsureViewer).toHaveBeenCalledWith("u3")
-    expect(result.current.liberado).toBe(true)
-    expect(result.current.participantes).toEqual(lista)
+    expect(result.current.participantes).toEqual([outro, eu])
   })
 
   it("sem inscrição: não libera nem tenta listar", async () => {
-    mockIsViewer.mockResolvedValue(false)
+    mockPrepareSelf.mockResolvedValue(null)
     const { result } = renderHook(() => useParticipants("u2"))
     await waitFor(() => expect(result.current.carregando).toBe(false))
     expect(result.current.liberado).toBe(false)
     expect(mockList).not.toHaveBeenCalled()
   })
 
-  it("admin vê a lista sem estar inscrito", async () => {
+  it("admin vê a lista sem estar inscrito e sem se publicar", async () => {
     const { result } = renderHook(() => useParticipants("admin", true))
     await waitFor(() => expect(result.current.carregando).toBe(false))
-    expect(mockIsViewer).not.toHaveBeenCalled()
-    expect(result.current.participantes).toEqual(lista)
+    expect(mockPrepareSelf).not.toHaveBeenCalled()
+    expect(mockEnsureListed).not.toHaveBeenCalled()
+    expect(result.current.participantes).toEqual([outro])
   })
 
   it("falha vira mensagem de erro", async () => {
@@ -71,6 +63,6 @@ describe("useParticipants", () => {
 
   it("sem uid não busca nada", () => {
     renderHook(() => useParticipants(undefined))
-    expect(mockIsViewer).not.toHaveBeenCalled()
+    expect(mockPrepareSelf).not.toHaveBeenCalled()
   })
 })

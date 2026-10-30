@@ -45,6 +45,16 @@ jest.mock("../../lib/affiliates", () => ({
   updateAffiliateProfile: (...a: unknown[]) => mockUpdatePerfil(...a),
   uploadProfilePhoto: jest.fn(),
 }))
+// Inscrição na etapa e entrada na lista de inscritos.
+const mockGetRegistration = jest.fn()
+jest.mock("../../lib/registrations", () => ({
+  ...jest.requireActual("../../lib/registrations"),
+  getRegistration: (...a: unknown[]) => mockGetRegistration(...a),
+}))
+const mockPublishSelf = jest.fn()
+jest.mock("../../lib/participants", () => ({
+  publishSelf: (...a: unknown[]) => mockPublishSelf(...a),
+}))
 jest.mock("../../components/Carteirinha", () => () => null)
 jest.mock("react-router-dom", () => ({
   ...jest.requireActual("react-router-dom"),
@@ -65,6 +75,46 @@ beforeEach(() => {
   mockUser = null
   mockFiliacao = null
   mockUpdatePerfil.mockResolvedValue(undefined)
+  mockGetRegistration.mockResolvedValue(null)
+  mockPublishSelf.mockResolvedValue(undefined)
+})
+
+describe("Painel — inscrição no Open Pádua", () => {
+  const filiado = { cpf: "12964858705", uid: "u1", fullName: "Ana", status: "active", academyId: 1, belt: 6 }
+
+  beforeEach(() => {
+    mockUser = { uid: "u1", email: "ana@x.com", emailVerified: true }
+    mockFiliacao = filiado
+  })
+
+  it.each(["pending", "paid"])("inscrição %s: mostra o botão da lista e entra nela", async (status) => {
+    mockGetRegistration.mockResolvedValue({ cpf: filiado.cpf, uid: "u1", status, fee: 120, weight: 70 })
+    renderPainel()
+    expect((await screen.findByText("Ver inscritos")).closest("a")).toHaveAttribute("href", "/evento/2/inscritos")
+    expect(mockPublishSelf).toHaveBeenCalledWith("u1")
+  })
+
+  it("inscrição removida: sem botão e não entra na lista", async () => {
+    mockGetRegistration.mockResolvedValue({ cpf: filiado.cpf, uid: "u1", status: "removed", fee: 120, weight: 70 })
+    renderPainel()
+    await waitFor(() => expect(mockGetRegistration).toHaveBeenCalled())
+    expect(screen.queryByText("Ver inscritos")).toBeNull()
+    expect(mockPublishSelf).not.toHaveBeenCalled()
+  })
+
+  it("sem inscrição: sem botão e não entra na lista", async () => {
+    renderPainel()
+    await waitFor(() => expect(mockGetRegistration).toHaveBeenCalled())
+    expect(screen.queryByText("Ver inscritos")).toBeNull()
+    expect(mockPublishSelf).not.toHaveBeenCalled()
+  })
+
+  it("falha ao entrar na lista não aparece no painel", async () => {
+    mockGetRegistration.mockResolvedValue({ cpf: filiado.cpf, uid: "u1", status: "pending", fee: 120, weight: 70 })
+    mockPublishSelf.mockRejectedValue(new Error("offline"))
+    renderPainel()
+    expect(await screen.findByText("Ver inscritos")).toBeInTheDocument()
+  })
 })
 
 describe("Painel — aviso de e-mail não confirmado", () => {

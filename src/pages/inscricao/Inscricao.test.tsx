@@ -40,6 +40,12 @@ jest.mock("../../lib/registrations", () => ({
   getRegistration: (...a: unknown[]) => mockGet(...a),
 }))
 
+// Entrada na lista de inscritos: a lógica é testada em lib/participants.
+const mockPublishSelf = jest.fn()
+jest.mock("../../lib/participants", () => ({
+  publishSelf: (...a: unknown[]) => mockPublishSelf(...a),
+}))
+
 /** Mostra o que a tela mandou para o /login (destino e motivo). */
 function LoginFalso() {
   const { state } = useLocation() as { state?: { from?: string; aviso?: string } }
@@ -88,6 +94,7 @@ beforeEach(() => {
   mockErroBusca = false
   mockCreate.mockResolvedValue(inscricaoPendente)
   mockGet.mockResolvedValue(null) // por padrão, ainda não inscrito
+  mockPublishSelf.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -243,6 +250,29 @@ describe("Inscrição — criação", () => {
     expect(await screen.findByText("INSCRIÇÃO ENVIADA")).toBeInTheDocument()
     expect(screen.getByText("Pagamento pendente")).toBeInTheDocument()
     expect(mockCreate).toHaveBeenCalledWith({ cpf: "12964858705", uid: "u1", fee: 120, weight: 82.5 })
+  })
+
+  it("ao se inscrever, já entra na lista de inscritos", async () => {
+    renderInscricao()
+    await confirmarComPeso()
+    await screen.findByText("INSCRIÇÃO ENVIADA")
+    expect(mockPublishSelf).toHaveBeenCalledWith("u1")
+  })
+
+  it("falha ao entrar na lista não atrapalha a inscrição", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {})
+    mockPublishSelf.mockRejectedValue(new Error("offline"))
+    renderInscricao()
+    await confirmarComPeso()
+    expect(await screen.findByText("INSCRIÇÃO ENVIADA")).toBeInTheDocument()
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    spy.mockRestore()
+  })
+
+  it("não entra na lista sem criar inscrição", async () => {
+    renderInscricao()
+    await screen.findByLabelText("Peso (kg)")
+    expect(mockPublishSelf).not.toHaveBeenCalled()
   })
 
   it("cobra R$ 100 de atleta com até 9 anos no dia do evento", async () => {

@@ -89,10 +89,10 @@ describe.each([
       expect(screen.queryByText("Ana Resende")).toBeNull()
     })
 
-    it("avisa quando ainda não há confirmados", () => {
+    it("avisa quando ainda não há inscritos", () => {
       mockUseParticipants.mockReturnValue(pronto([]))
       renderAt(ui())
-      expect(screen.getByText("Nenhum inscrito confirmado ainda.")).toBeInTheDocument()
+      expect(screen.getByText("Nenhum inscrito ainda.")).toBeInTheDocument()
     })
 
     it("evento sem lista de inscritos (id da URL)", () => {
@@ -116,9 +116,9 @@ describe.each([
   describe("lista", () => {
     it("mostra título, evento e total", () => {
       renderAt(ui())
-      expect(screen.getByRole("heading", { name: "Inscritos confirmados" })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: "Inscritos" })).toBeInTheDocument()
       expect(screen.getByText(/Open Pádua Jiu Jitsu · 08\/11\/2026/)).toBeInTheDocument()
-      expect(screen.getByText("5 inscritos confirmados")).toBeInTheDocument()
+      expect(screen.getByText("5 inscritos")).toBeInTheDocument()
     })
 
     it("ordena por categoria e depois por nome", () => {

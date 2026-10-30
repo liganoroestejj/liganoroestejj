@@ -23,6 +23,7 @@ import {
   effectiveStatus,
   WHATSAPP_PHONE,
 } from "../../lib/affiliateOptions"
+import { publishSelf } from "../../lib/participants"
 import * as s from "../auth/authStyles"
 
 interface Affiliate {
@@ -163,6 +164,9 @@ export default function Inscricao() {
     try {
       // O id do documento é o CPF, então confirmar duas vezes não duplica.
       setInscricao(await createRegistration({ cpf: afiliado.cpf, uid: user.uid, fee: valor, weight: kg }))
+      // Já entra na lista de inscritos que os outros atletas veem. É um
+      // extra: se falhar, entra quando abrir a lista ou o Painel.
+      publishSelf(user.uid).catch((err) => console.error("[inscricao] falha ao entrar na lista de inscritos:", err))
     } catch (err) {
       console.error("[inscricao] falha ao criar inscrição:", err)
       setErro("Não foi possível concluir sua inscrição agora. Tente novamente em alguns minutos.")
@@ -424,7 +428,7 @@ export default function Inscricao() {
               to={`/evento/${evento.id}/inscritos`}
               style={{ ...s.button, display: "block", textAlign: "center", textDecoration: "none" }}
             >
-              Ver inscritos confirmados
+              Ver inscritos
             </Link>
           </>
         ) : (
@@ -445,7 +449,7 @@ export default function Inscricao() {
               to={`/evento/${evento.id}/inscritos`}
               style={{ display: "block", textAlign: "center", textDecoration: "none", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", padding: "12px 20px", borderRadius: 5, marginTop: 12 }}
             >
-              Ver inscritos confirmados
+              Ver inscritos
             </Link>
           </>
         )}

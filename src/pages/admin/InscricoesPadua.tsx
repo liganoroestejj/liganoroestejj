@@ -73,8 +73,8 @@ export default function InscricoesPadua({
     return () => { ativo = false }
   }, [])
 
-  // A lista de inscritos pagos (e quem pode vê-la: todo inscrito não
-  // removido) é publicada daqui: o admin é o único que lê filiações e
+  // A lista de inscritos (pagos e pendentes) e quem pode vê-la são
+  // mantidas em dia daqui: o admin é o único que lê filiações e
   // inscrições. Roda ao carregar e a cada
   // pagamento/remoção, gravando só o que mudou. Uma falha não trava a tela do
   // admin — a próxima abertura tenta de novo.

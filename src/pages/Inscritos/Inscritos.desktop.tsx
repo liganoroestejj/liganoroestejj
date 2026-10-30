@@ -22,7 +22,7 @@ export default function InscritosDesktop() {
           ← Voltar
         </Link>
         <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color: "#fff", letterSpacing: 3, margin: "20px 0 4px" }}>
-          Inscritos confirmados
+          Inscritos
         </h1>
         {st.evento && <div style={{ color: "#888", fontSize: 14, marginBottom: 28 }}>{st.evento.title} · {st.evento.date}</div>}
 

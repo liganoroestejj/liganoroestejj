@@ -19,7 +19,7 @@ export default function InscritosMobile() {
           ← Voltar
         </Link>
         <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, color: "#fff", letterSpacing: 2, margin: "16px 0 4px" }}>
-          Inscritos confirmados
+          Inscritos
         </h1>
         {st.evento && <div style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>{st.evento.title} · {st.evento.date}</div>}
 

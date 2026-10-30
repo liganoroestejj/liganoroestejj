@@ -9,6 +9,7 @@ import { BELT_LABELS, GENDER_LABELS, ROLE_LABELS, effectiveStatus, MEMBERSHIP_FE
 import { useAcademies } from "../../hooks/useAcademies"
 import { getRegistration, PADUA_EVENT_ID, type Registration } from "../../lib/registrations"
 import { getEventById } from "../../data/events"
+import { publishSelf } from "../../lib/participants"
 import { formatCep, formatPhone } from "../../lib/masks"
 import { isValidEmail } from "../../lib/sanitize"
 
@@ -141,10 +142,17 @@ export default function Painel() {
     if (!affiliate?.cpf) return
     let ativo = true
     getRegistration(affiliate.cpf)
-      .then((r) => { if (ativo) setInscricao(r) })
+      .then((r) => {
+        if (ativo) setInscricao(r)
+        // Inscrito entra (ou se atualiza) na lista que os outros atletas
+        // veem, mesmo sem abri-la. Também silencioso.
+        if (r && r.status !== "removed" && user) {
+          publishSelf(user.uid).catch(() => { /* ignora: entra ao abrir a lista */ })
+        }
+      })
       .catch(() => { /* ignora: o resumo apenas não aparece */ })
     return () => { ativo = false }
-  }, [affiliate?.cpf])
+  }, [affiliate?.cpf, user])
 
   // A conta de administrador é redirecionada para o painel admin.
   if (isAdmin) return <Navigate to="/admin" replace />
@@ -496,14 +504,14 @@ export default function Painel() {
                 </div>
               </Link>
               {/* Estar inscrito (pago ou não) libera a lista dos inscritos
-                  confirmados. Fica dentro do card do evento para não parecer
+                  do evento. Fica dentro do card do evento para não parecer
                   outra coisa. */}
               <div style={{ borderTop: "1px solid #1e1e1e", padding: "14px 24px 18px" }}>
                 <Link
                   to={`/evento/${PADUA_EVENT_ID}/inscritos`}
                   style={{ display: "block", textAlign: "center", border: "1px solid #F0B90B", color: "#F0B90B", fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", textDecoration: "none", padding: "11px 20px", borderRadius: 5 }}
                 >
-                  Ver inscritos confirmados
+                  Ver inscritos
                 </Link>
               </div>
               </div>

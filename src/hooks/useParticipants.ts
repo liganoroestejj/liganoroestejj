@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
-import { ensureViewer, isViewer, listParticipants, type Participant } from "../lib/participants"
+import { ensureListed, listParticipants, prepareSelf, type Participant } from "../lib/participants"
 
 /**
- * Lista de inscritos pagos do Open Pádua para o atleta logado.
+ * Lista de inscritos do Open Pádua para o atleta logado.
  * `liberado` fica false para quem não tem inscrição: a lista é só entre
  * inscritos (pagos ou pendentes) — o admin também vê.
  */
@@ -19,13 +19,16 @@ export function useParticipants(uid: string | undefined, isAdmin = false) {
     setErro("")
     ;(async () => {
       try {
-        // Ainda não liberado: confere a própria inscrição e se libera — quem
-        // acabou de se inscrever não espera o admin abrir a aba de inscrições.
-        const pode = isAdmin || (await isViewer(uid)) || (await ensureViewer(uid))
+        // Confere a própria inscrição (e se libera): quem acabou de se
+        // inscrever não espera o admin abrir a aba de inscrições.
+        const eu = isAdmin ? null : await prepareSelf(uid)
+        const pode = isAdmin || !!eu
         if (!ativo) return
         setLiberado(pode)
         if (pode) {
-          const lista = await listParticipants()
+          let lista = await listParticipants()
+          // O próprio atleta entra (ou se atualiza) na lista ao abri-la.
+          if (eu) lista = await ensureListed(eu, lista)
           if (ativo) setParticipantes(lista)
         }
       } catch (err) {

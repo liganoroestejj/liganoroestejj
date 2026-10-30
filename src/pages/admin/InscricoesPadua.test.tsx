@@ -69,7 +69,7 @@ beforeEach(() => {
   mockSetPaid.mockResolvedValue(undefined)
   mockRemove.mockResolvedValue(undefined)
   mockReactivate.mockResolvedValue(undefined)
-  mockExpected.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status === "paid").map((r) => r.cpf))
+  mockExpected.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status !== "removed").map((r) => r.cpf))
   mockSync.mockResolvedValue(undefined)
   mockExpectedViewers.mockImplementation((regs: Registration[]) => regs.filter((r) => r.status !== "removed").map((r) => r.cpf))
   mockSyncViewers.mockResolvedValue(undefined)
@@ -334,11 +334,11 @@ describe("Inscrições — pagamento", () => {
   })
 })
 
-describe("Inscrições — lista pública dos inscritos pagos", () => {
-  it("publica os pagos ao carregar, com as inscrições e os filiados", async () => {
+describe("Inscrições — lista pública dos inscritos", () => {
+  it("publica os inscritos ao carregar, com as inscrições e os filiados", async () => {
     renderLista()
     await aguardarLista()
-    await waitFor(() => expect(mockSync).toHaveBeenCalledWith(["11111111111"]))
+    await waitFor(() => expect(mockSync).toHaveBeenCalledWith(["11111111111", "22222222222", "33333333333"]))
     expect(mockExpected).toHaveBeenLastCalledWith(
       expect.arrayContaining([expect.objectContaining({ cpf: "11111111111" })]),
       filiados,
@@ -369,17 +369,21 @@ describe("Inscrições — lista pública dos inscritos pagos", () => {
     const linha = screen.getByText("Bruno Lima").closest("tr") as HTMLElement
     fireEvent.click(within(linha).getByRole("button", { name: /marcar pago/i }))
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
-    await waitFor(() => expect(mockSync).toHaveBeenLastCalledWith(["11111111111", "22222222222"]))
+    await waitFor(() => expect(mockExpected).toHaveBeenLastCalledWith(
+      expect.arrayContaining([expect.objectContaining({ cpf: "22222222222", status: "paid" })]),
+      filiados,
+      expect.any(Date),
+    ))
   })
 
-  it("republica ao remover uma inscrição paga", async () => {
+  it("tira da lista ao remover uma inscrição", async () => {
     renderLista()
     await aguardarLista()
     const linha = screen.getByText("Ana Resende").closest("tr") as HTMLElement
     fireEvent.click(within(linha).getByRole("button", { name: "Ações" }))
     fireEvent.click(screen.getByText("Remover inscrição"))
     fireEvent.click(screen.getByRole("button", { name: "Remover" }))
-    await waitFor(() => expect(mockSync).toHaveBeenLastCalledWith([]))
+    await waitFor(() => expect(mockSync).toHaveBeenLastCalledWith(["22222222222", "33333333333"]))
   })
 
   it("não publica enquanto carrega (apagaria a lista)", () => {

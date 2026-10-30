@@ -112,16 +112,40 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Lista de inscritos pagos do Open Pádua, vista por qualquer inscrito
-    // (pago ou pendente). O id do doc é o uid do atleta e o conteúdo é só o
+    // CPF da inscrição de quem está logado (guardado em paduaViewers).
+    function viewerCpf() {
+      return get(/databases/$(database)/documents/paduaViewers/$(request.auth.uid)).data.cpf;
+    }
+
+    // Lista de inscritos do Open Pádua (pagos e pendentes), vista por
+    // qualquer inscrito. O id do doc é o uid do atleta e o conteúdo é só o
     // que pode circular entre atletas (nome, academia, faixa, categoria,
-    // idade) — sem CPF nem contato. Quem publica é o admin.
+    // idade) — sem CPF nem contato.
     match /paduaParticipants/{uid} {
       allow read: if isAdmin()
         || (request.auth != null
             && (exists(/databases/$(database)/documents/paduaViewers/$(request.auth.uid))
                 || exists(/databases/$(database)/documents/paduaParticipants/$(request.auth.uid))));
-      allow write: if isAdmin();
+      // O próprio inscrito publica a sua linha ao abrir a lista, para
+      // aparecer sem esperar o admin. Nome, academia, faixa, sexo e foto têm
+      // que bater com a filiação; idade e categorias são recalculadas pelo
+      // admin a cada abertura da aba de inscrições. Apagar é só do admin.
+      allow create, update: if isAdmin()
+        || (request.auth != null
+            && request.auth.uid == uid
+            && exists(/databases/$(database)/documents/paduaViewers/$(uid))
+            && get(/databases/$(database)/documents/paduaRegistrations/$(viewerCpf())).data.status in ['pending', 'paid']
+            && request.resource.data.keys().hasOnly([
+                 'uid', 'fullName', 'academyId', 'belt', 'gender', 'photoURL',
+                 'age', 'categoryId', 'category', 'weightClass'
+               ])
+            && request.resource.data.uid == uid
+            && request.resource.data.fullName == get(/databases/$(database)/documents/affiliates/$(viewerCpf())).data.fullName
+            && request.resource.data.academyId == get(/databases/$(database)/documents/affiliates/$(viewerCpf())).data.academyId
+            && request.resource.data.belt == get(/databases/$(database)/documents/affiliates/$(viewerCpf())).data.belt
+            && request.resource.data.gender == get(/databases/$(database)/documents/affiliates/$(viewerCpf())).data.get('gender', null)
+            && request.resource.data.photoURL == get(/databases/$(database)/documents/affiliates/$(viewerCpf())).data.get('photoURL', null));
+      allow delete: if isAdmin();
     }
 
     // Quem pode ver a lista acima: um doc por atleta inscrito (id = uid,

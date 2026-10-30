@@ -92,16 +92,16 @@ export function estadoDaTela(st: InscritosState): React.ReactNode {
       </div>
     )
   }
-  if (st.total === 0) return <p style={{ color: "#666", fontSize: 14 }}>Nenhum inscrito confirmado ainda.</p>
+  if (st.total === 0) return <p style={{ color: "#666", fontSize: 14 }}>Nenhum inscrito ainda.</p>
   return null
 }
 
-/** "12 inscritos confirmados · 3 na seleção". */
+/** "12 inscritos · 3 no filtro". */
 export function Resumo({ st }: { st: InscritosState }) {
   const filtrado = !!st.categoria || st.idade !== null
   return (
     <div style={{ color: "#888", fontSize: 13, marginBottom: 14 }}>
-      {st.total} {st.total === 1 ? "inscrito confirmado" : "inscritos confirmados"}
+      {st.total} {st.total === 1 ? "inscrito" : "inscritos"}
       {filtrado && <> · <span style={{ color: "#F0B90B" }}>{st.visiveis.length} no filtro</span></>}
     </div>
   )

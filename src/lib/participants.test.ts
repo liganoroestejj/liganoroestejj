@@ -1,10 +1,10 @@
 import {
-  ageOptions, buildParticipant, categoryOptions, ensureViewer, expectedParticipants, expectedViewers,
-  isParticipant, isViewer, listParticipants, sortParticipants, syncParticipants, syncViewers,
+  ageOptions, buildParticipant, categoryOptions, ensureListed, expectedParticipants, expectedViewers,
+  listParticipants, prepareSelf, sortParticipants, syncParticipants, syncViewers,
   type Participant,
 } from "./participants"
 import type { Registration } from "./registrations"
-import { doc, getDoc, getDocs, setDoc, writeBatch } from "firebase/firestore"
+import { getDoc, getDocs, setDoc, writeBatch } from "firebase/firestore"
 
 const mockGetRegistration = jest.fn()
 jest.mock("./registrations", () => ({
@@ -87,25 +87,17 @@ describe("buildParticipant", () => {
 })
 
 describe("expectedParticipants", () => {
-  it("entra só inscrição paga com filiação existente", () => {
+  it("entra toda inscrição não removida (paga ou pendente) com filiação existente", () => {
     const lista = expectedParticipants(
       [reg("1", "paid"), reg("2", "pending"), reg("3", "removed"), reg("4", "paid")],
       [filiado("1", "1990-01-01"), filiado("2", "1990-01-01"), filiado("3", "1990-01-01")],
       EVENTO,
     )
-    expect(lista.map((p) => p.uid)).toEqual(["u-1"])
+    expect(lista.map((p) => p.uid)).toEqual(["u-1", "u-2"])
   })
 })
 
-describe("isParticipant / listParticipants", () => {
-  it("diz se o uid está na lista", async () => {
-    ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => true })
-    expect(await isParticipant("u-1")).toBe(true)
-    expect(doc).toHaveBeenCalledWith({}, "paduaParticipants", "u-1")
-    ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => false })
-    expect(await isParticipant("u-2")).toBe(false)
-  })
-
+describe("listParticipants", () => {
   it("lista os docs", async () => {
     const p = participante({ uid: "a" })
     ;(getDocs as jest.Mock).mockResolvedValue({ docs: [{ data: () => p }] })
@@ -162,40 +154,70 @@ describe("quem pode ver a lista (paduaViewers)", () => {
     expect(lista).toEqual([{ uid: "u-1", cpf: "1" }, { uid: "u-2", cpf: "2" }])
   })
 
-  it("isViewer lê o doc do próprio uid", async () => {
-    ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => true })
-    expect(await isViewer("u-1")).toBe(true)
-    expect(doc).toHaveBeenCalledWith({}, "paduaViewers", "u-1")
-  })
-
-  describe("ensureViewer", () => {
+  describe("prepareSelf", () => {
     const comFiliacao = () =>
-      (getDocs as jest.Mock).mockResolvedValue({ empty: false, docs: [{ data: () => ({ cpf: "111" }) }] })
+      (getDocs as jest.Mock).mockResolvedValue({
+        empty: false,
+        docs: [{ data: () => filiado("111", "1990-01-01", { fullName: "Ana" }) }],
+      })
 
-    it("inscrição pendente libera o próprio atleta", async () => {
+    it("inscrição pendente libera o atleta e devolve a linha dele", async () => {
       comFiliacao()
       mockGetRegistration.mockResolvedValue(reg("111", "pending"))
-      expect(await ensureViewer("u-1")).toBe(true)
+      ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => false })
+      const eu = await prepareSelf("u-1")
       expect(setDoc).toHaveBeenCalledWith("paduaViewers/u-1", { uid: "u-1", cpf: "111" })
+      expect(eu).toEqual(expect.objectContaining({ uid: "u-1", fullName: "Ana", category: "Master 2" }))
+    })
+
+    it("já liberado não grava de novo", async () => {
+      comFiliacao()
+      mockGetRegistration.mockResolvedValue(reg("111", "paid"))
+      ;(getDoc as jest.Mock).mockResolvedValue({ exists: () => true })
+      expect(await prepareSelf("u-1")).not.toBeNull()
+      expect(setDoc).not.toHaveBeenCalled()
     })
 
     it("sem filiação não libera", async () => {
       ;(getDocs as jest.Mock).mockResolvedValue({ empty: true, docs: [] })
-      expect(await ensureViewer("u-1")).toBe(false)
+      expect(await prepareSelf("u-1")).toBeNull()
       expect(setDoc).not.toHaveBeenCalled()
     })
 
     it("sem inscrição não libera", async () => {
       comFiliacao()
       mockGetRegistration.mockResolvedValue(null)
-      expect(await ensureViewer("u-1")).toBe(false)
+      expect(await prepareSelf("u-1")).toBeNull()
       expect(setDoc).not.toHaveBeenCalled()
     })
 
     it("inscrição removida não libera", async () => {
       comFiliacao()
       mockGetRegistration.mockResolvedValue(reg("111", "removed"))
-      expect(await ensureViewer("u-1")).toBe(false)
+      expect(await prepareSelf("u-1")).toBeNull()
+      expect(setDoc).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("ensureListed", () => {
+    it("publica o atleta que ainda não está na lista", async () => {
+      const eu = participante({ uid: "eu" })
+      const outro = participante({ uid: "outro" })
+      expect(await ensureListed(eu, [outro])).toEqual([outro, eu])
+      expect(setDoc).toHaveBeenCalledWith("paduaParticipants/eu", eu)
+    })
+
+    it("atualiza a linha que mudou (ex.: trocou a foto)", async () => {
+      const antigo = participante({ uid: "eu", photoURL: null })
+      const eu = { ...antigo, photoURL: "nova.jpg" }
+      expect(await ensureListed(eu, [antigo])).toEqual([eu])
+      expect(setDoc).toHaveBeenCalledWith("paduaParticipants/eu", eu)
+    })
+
+    it("não grava quando já está em dia", async () => {
+      const eu = participante({ uid: "eu" })
+      const lista = [{ ...eu }]
+      expect(await ensureListed(eu, lista)).toBe(lista)
       expect(setDoc).not.toHaveBeenCalled()
     })
   })

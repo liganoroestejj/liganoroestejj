@@ -1,5 +1,5 @@
 import camp1 from "../assets/image/campeonato1.jpeg"
-import campPadua from "../assets/image/campeonato-padua.jpeg"
+import campPadua from "../assets/image/campeonato-padua-atualizado.jpeg"
 import camp3 from "../assets/image/campeonato3.webp"
 
 export type EventItem = {
